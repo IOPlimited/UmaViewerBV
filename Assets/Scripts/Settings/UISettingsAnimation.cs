@@ -18,6 +18,16 @@ public class UISettingsAnimation : MonoBehaviour
 
     internal void UpdateAnimationInfo(UmaContainerCharacter umaContainer)
     {
+        var legacy = umaContainer.PreviewLegacyClip;
+        if (legacy != null)
+        {
+            float time = umaContainer.PreviewLegacyTime;
+            TitleText.text = legacy.name;
+            ProgressText.text = string.Format("{0} / {1}", ToFrameFormat(time, legacy.frameRate), ToFrameFormat(legacy.length, legacy.frameRate));
+            ProgressSlider.SetValueWithoutNotify(legacy.length > 0 ? time / legacy.length : 0);
+            UpdatePlayButtonIcon(umaContainer.PreviewLegacySpeed > 0 && time < legacy.length);
+            return;
+        }
         if (umaContainer.OverrideController["clip_2"].name != "clip_2")
         {
             bool isLoop = umaContainer.OverrideController["clip_2"].name.Contains("_loop");
@@ -38,6 +48,12 @@ public class UISettingsAnimation : MonoBehaviour
     {
         var container = Builder.CurrentUMAContainer;
         if (!container || !container.UmaAnimator) return;
+        if (container.PreviewLegacyClip != null)
+        {
+            container.TogglePreviewLegacy(SpeedSlider.value);
+            UpdatePlayButtonIcon(container.PreviewLegacySpeed > 0);
+            return;
+        }
         if (Builder.OverrideController.animationClips.Length == 0) return;
 
         var animator = container.UmaAnimator;
@@ -82,6 +98,12 @@ public class UISettingsAnimation : MonoBehaviour
     {
         var container = Builder.CurrentUMAContainer;
         if (!container) return;
+        if (container.PreviewLegacyClip != null)
+        {
+            container.SeekPreviewLegacy(val);
+            UpdateAnimationInfo(container);
+            return;
+        }
         var animator = container.UmaAnimator;
         var animator_face = container.UmaFaceAnimator;
         var animator_cam = Builder.AnimationCameraAnimator;
@@ -118,6 +140,12 @@ public class UISettingsAnimation : MonoBehaviour
 
         if (!container || !container.UmaAnimator) return;
 
+        if (container.PreviewLegacyClip != null)
+        {
+            container.SetPreviewLegacySpeed(val);
+            UpdatePlayButtonIcon(val > 0);
+            return;
+        }
         container.UmaAnimator.speed = val;
         Builder.AnimationCameraAnimator.speed = val;
         if (container.UmaFaceAnimator)
