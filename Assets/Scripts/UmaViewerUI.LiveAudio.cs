@@ -42,7 +42,7 @@ public partial class UmaViewerUI
         {
             _vocalLabelsBuilt = true;
 
-            Text("语音选择：", root, new Vector2(-330f, -78f), new Vector2(150f, 32f), 21);
+            LiveRenderUI.Text("语音选择：", root, new Vector2(-330f, -78f), new Vector2(150f, 32f), 21);
 
             _vocalModeDropdown = CreateDropdown(root, new Vector2(-120f, -78f), new Vector2(280f, 34f));
 
