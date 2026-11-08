@@ -27,7 +27,7 @@ public static class UiFont
     };
 
     /// <summary>TMP 这边统一用 Noto Sans CJK，legacy Text 也取同一份字体文件。</summary>
-    private const string BundledFontPath = "Fonts/NotoSansCJKsc-Bold";
+    private const string BundledFontPath = "Fonts/华文仿宋";
 
     public static Font Get(int size = 24)
     {
