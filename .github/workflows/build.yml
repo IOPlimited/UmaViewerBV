@@ -205,78 +205,51 @@ jobs:
           Get-ChildItem $buildDir -Force |
             Select-Object Name, Length
 
-      - name: Package Windows build
-        shell: pwsh
-        run: |
-          $buildDir = "build/StandaloneWindows64"
-          $zipPath = "UmaViewer-Windows-x64.zip"
-
-          if (Test-Path $zipPath) {
-            Remove-Item $zipPath -Force
-          }
-
-          # Unity always emits these two IL2CPP/Burst helper folders next to the player;
-          # they are debug/backup only and must not ship in the artifact.
-          Get-ChildItem -Path $buildDir -Directory -Force | Where-Object {
-            $_.Name -like "*_BackUpThisFolder_ButDontShipItWithYourGame" -or
-            $_.Name -like "*_BurstDebugInformation_DoNotShip"
-          } | ForEach-Object {
-            Write-Host "Excluding $($_.Name)"
-            Remove-Item $_.FullName -Recurse -Force
-          }
-
-          Compress-Archive `
-            -Path "$buildDir/*" `
-            -DestinationPath $zipPath `
-            -CompressionLevel Optimal
-
-          if (!(Test-Path $zipPath)) {
-            throw "ZIP packaging failed."
-          }
-
-          Write-Host "Package size: $((Get-Item $zipPath).Length) bytes"
-
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          # Upload the unpacked player, not the zip: the artifact download is already a
-          # zip, so uploading our zip nested it twice (one extraction yielded another zip).
-          # The zip built above is only used for the GitHub Release asset.
+          # 不再压 zip：直接上传编译输出的目录，下载即用
           name: UmaViewer-Windows-x64
           path: build/StandaloneWindows64
           if-no-files-found: error
           retention-days: 14
           compression-level: 6
 
-      - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
-        shell: pwsh
+  # Windows 不再压 zip，也就没有可直接上传的单一文件，所以 Release 只挂 Android 的 APK；
+  # Windows 产物继续从 Actions artifact 取（那里本来就是未打包的目录）。
+  release:
+    name: Publish APK
+    needs: [android, build]
+    # 只有 Android 真的构建成功才有 APK 可挂；选了 windows 时该 job 会被跳过
+    if: "!cancelled() && needs.android.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != ''))"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Android artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: UmaViewer-Android
+          path: dist/android
+
+      - name: Publish APK to release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != '' && inputs.release_tag || github.ref_name }}
-          TARGET_SHA: ${{ github.sha }}
         run: |
-          $ErrorActionPreference = "Stop"
+          set -euo pipefail
 
-          gh release view $env:RELEASE_TAG *> $null
+          apk=$(find dist/android -name '*.apk' -type f | head -n 1)
 
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $env:RELEASE_TAG `
-              "UmaViewer-Windows-x64.zip" `
-              --clobber
+          if [ -z "$apk" ]; then
+            echo "no apk found in artifact" >&2
+            exit 1
+          fi
 
-            if ($LASTEXITCODE -ne 0) {
-              throw "Failed to upload asset to existing release."
-            }
-          }
-          else {
-            gh release create $env:RELEASE_TAG `
-              "UmaViewer-Windows-x64.zip#UmaViewer Windows x64 (IL2CPP)" `
-              --target $env:TARGET_SHA `
-              --title "UmaViewer $env:RELEASE_TAG" `
-              --generate-notes
+          echo "uploading $apk"
 
-            if ($LASTEXITCODE -ne 0) {
-              throw "Failed to create GitHub Release."
-            }
-          }
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$apk#UmaViewer Android (IL2CPP)" --clobber
+          else
+            gh release create "$RELEASE_TAG"               "$apk#UmaViewer Android (IL2CPP)"               --target "$GITHUB_SHA"               --title "UmaViewer $RELEASE_TAG"               --generate-notes
+          fi
