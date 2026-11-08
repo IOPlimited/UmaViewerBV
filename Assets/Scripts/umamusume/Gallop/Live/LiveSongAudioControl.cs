@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -71,7 +71,8 @@ namespace Gallop.Live
         }
 
         public static LiveSongAudioPlan Create(int song, int singerCount, IList<LiveCharacterLoadData> characters,
-            int requestedOke=0,bool isLiveCall=true,int okePattern=0,IList<int> variations=null)
+            int requestedOke=0,bool isLiveCall=true,int okePattern=0,IList<int> variations=null,
+            int[] vocalCharaIds=null)
         {
             var main = UmaViewerMain.Instance;
             var eligible = new HashSet<int>(UmaDatabaseController.Instance.ReadSongEligibleCharacters(song));
@@ -120,7 +121,10 @@ namespace Gallop.Live
             {
                 int character = characters[i].CharaEntry.Id;
                 bool characterPermitted = eligible.Contains(character);
-                int voice = SelectVoice(character, 0, order, excluded, isPlayable);
+
+                // 用户在这个槽位显式选了歌手就用它，否则回落到自动挑选。
+                int requested = (vocalCharaIds != null && i < vocalCharaIds.Length) ? vocalCharaIds[i] : -1;
+                int voice = requested > 0 ? requested : SelectVoice(character, 0, order, excluded, isPlayable);
                 if (voice > 0) excluded.Add(voice);
                 var entry = voice > 0 && voiceEntries.TryGetValue(voice, out var voiceEntry) ? voiceEntry : null;
                 if (voice > 0 && (entry == null || !System.IO.File.Exists(entry.Path)))
@@ -130,7 +134,8 @@ namespace Gallop.Live
                     voice = 0;
                     entry = null;
                 }
-                string reason = voice == character ? "character-permitted-by-master"
+                string reason = requested > 0 ? "user-selected"
+                    : voice == character ? "character-permitted-by-master"
                     : voice > 0 ? (characterPermitted ? "file-missing-substitute"
                         : "game-priority-first-eligible-shuffled-nonexcluded")
                     : "no-permitted-voice";

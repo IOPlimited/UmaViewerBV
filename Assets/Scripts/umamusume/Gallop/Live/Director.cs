@@ -1,4 +1,4 @@
-using Gallop.Live.Cutt;
+﻿using Gallop.Live.Cutt;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -393,6 +393,12 @@ namespace Gallop.Live
 
         public List<Animation> charaAnims;
         public List<UmaViewerAudio.CuteAudioSource> liveVocal = new List<UmaViewerAudio.CuteAudioSource>();
+
+        /// <summary>
+        /// 每个演唱槽位显式选择的歌手（charaId），-1 表示交给游戏规则自动挑选。
+        /// UI 侧的 Live 音频下拉写这里，AudioPlan 构建时优先采用。
+        /// </summary>
+        public int[] VocalCharaIds = new int[] { -1, -1, -1, -1, -1, -1, -1 };
         public UmaViewerAudio.CuteAudioSource liveMusic = new UmaViewerAudio.CuteAudioSource();
         public PartEntry partInfo;
         public bool _syncTime = false;
@@ -1060,7 +1066,7 @@ namespace Gallop.Live
         public void PrepareMusic(int songid, List<LiveCharacterLoadData> characters)
         {
             InitializeLiveVariationSelection(songid, characters);
-            AudioPlan = LiveSongAudioPlan.Create(songid, partInfo.SingerCount, characters, OkeCallOnVariationId, IsLiveCall, _liveSettingsResources.OkeLiveVariationPattern, EnabledLiveVariationOrder);
+            AudioPlan = LiveSongAudioPlan.Create(songid, partInfo.SingerCount, characters, OkeCallOnVariationId, IsLiveCall, _liveSettingsResources.OkeLiveVariationPattern, EnabledLiveVariationOrder, VocalCharaIds);
         }
 
         // Native LiveLoadSettings input; 0 keeps RegisterSongCueSheet's default01.
