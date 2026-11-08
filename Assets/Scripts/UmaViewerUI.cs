@@ -1,4 +1,4 @@
-using Gallop;
+﻿using Gallop;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -931,6 +931,7 @@ public partial class UmaViewerUI : MonoBehaviour
         ShowFixedLiveSelections(entry, selections, keepSelections);
 
         EnsureLiveSlotActions();
+        EnsureLiveVocalPanel(entry);
     }
 
     //==========================================================================
