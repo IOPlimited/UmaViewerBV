@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -64,11 +64,11 @@ public sealed class LiveRenderSettings
         }
         catch(Exception error)
         {
-            Debug.LogWarning("[FFmpeg] 找不到可执行文件: "+error.Message);
+            UnityEngine.Debug.LogWarning("[FFmpeg] 找不到可执行文件: "+error.Message);
             return;
         }
 
-        Debug.Log("[FFmpeg] 使用 "+executable+" 做检测");
+        UnityEngine.Debug.Log("[FFmpeg] 使用 "+executable+" 做检测");
 
         try
         {
@@ -86,7 +86,7 @@ public sealed class LiveRenderSettings
                 {
                     try{process.Kill();}catch{}
 
-                    Debug.LogWarning("[FFmpeg] -version 超时: "+executable);
+                    UnityEngine.Debug.LogWarning("[FFmpeg] -version 超时: "+executable);
                     return;
                 }
 
@@ -96,13 +96,13 @@ public sealed class LiveRenderSettings
                 if(ffmpegDetected)
                     ffmpegExecutable=executable;
                 else
-                    Debug.LogWarning("[FFmpeg] -version 结果异常 exit="+process.ExitCode+" output="
+                    UnityEngine.Debug.LogWarning("[FFmpeg] -version 结果异常 exit="+process.ExitCode+" output="
                         +version.Substring(0,Math.Min(200,version.Length)));
             }
         }
         catch(Exception error)
         {
-            Debug.LogWarning("[FFmpeg] 启动失败: "+error.Message);
+            UnityEngine.Debug.LogWarning("[FFmpeg] 启动失败: "+error.Message);
             ffmpegDetected=false;
         }
     }
