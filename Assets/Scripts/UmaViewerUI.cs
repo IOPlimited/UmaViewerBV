@@ -949,8 +949,10 @@ public partial class UmaViewerUI : MonoBehaviour
         if (_liveSlotActionsBuilt)
             return;
 
+        // 父级用文本框自己：它的 anchoredPosition 就是“成员数”那行的位置，
+        // 比上一层的容器好预测得多。
         Transform parent = LiveSelectInfoText != null
-            ? LiveSelectInfoText.transform.parent
+            ? LiveSelectInfoText.transform
             : null;
 
         if (parent == null || !(parent is RectTransform))
@@ -960,8 +962,8 @@ public partial class UmaViewerUI : MonoBehaviour
 
         RectTransform rect = (RectTransform)parent;
 
-        LiveRenderUI.Button(UiLocalization.T("Copy slot 1"), rect, new Vector2(-300f, -232f), CopySlot1ToRest);
-        LiveRenderUI.Button(UiLocalization.T("Randomize costume 1"), rect, new Vector2(-40f, -232f), RandomizeCostumes);
+        LiveRenderUI.Button(UiLocalization.T("Copy slot 1"), rect, new Vector2(-120f, -120f), CopySlot1ToRest);
+        LiveRenderUI.Button(UiLocalization.T("Randomize costume 1"), rect, new Vector2(140f, -120f), RandomizeCostumes);
     }
 
     /// <summary>槽位 1 为空时找任意一个已填好的槽位当源；都空就返回 null。</summary>

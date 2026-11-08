@@ -27,7 +27,7 @@ public partial class UmaViewerUI
         if (entry == null || LiveSelectInfoText == null)
             return;
 
-        RectTransform root = LiveSelectInfoText.transform.parent as RectTransform;
+        RectTransform root = LiveSelectInfoText.transform as RectTransform;
 
         if (root == null)
             return;
@@ -42,9 +42,9 @@ public partial class UmaViewerUI
         {
             _vocalLabelsBuilt = true;
 
-            LiveRenderUI.Text("语音选择：", root, new Vector2(-330f, -78f), new Vector2(150f, 32f), 21);
+            LiveRenderUI.Text("语音选择：", root, new Vector2(-260f, -10f), new Vector2(150f, 32f), 21);
 
-            _vocalModeDropdown = CreateDropdown(root, new Vector2(-120f, -78f), new Vector2(280f, 34f));
+            _vocalModeDropdown = CreateDropdown(root, new Vector2(10f, -10f), new Vector2(220f, 34f));
 
             if (_vocalModeDropdown != null)
             {
@@ -62,8 +62,8 @@ public partial class UmaViewerUI
             {
                 _vocalSlotDropdowns[i] = CreateDropdown(
                     root,
-                    new Vector2(-330f + i * 100f, -118f),
-                    new Vector2(94f, 30f));
+                    new Vector2(-300f + i * 92f, -52f),
+                    new Vector2(86f, 30f));
 
                 if (_vocalSlotDropdowns[i] != null)
                 {
@@ -71,6 +71,24 @@ public partial class UmaViewerUI
                     _vocalSlotDropdowns[i].onValueChanged.AddListener(index => OnVocalSlotChanged(slot, index));
                 }
             }
+        }
+
+        Debug.Log($"[LiveAudio] 面板 root={root.name} size={root.rect.size} pos={root.anchoredPosition} "
+            + $"父级={(root.parent != null ? root.parent.name : "<无>")}");
+
+        for (int i = 0; i < VocalSlotCount; i++)
+        {
+            TMP_Dropdown dd = _vocalSlotDropdowns[i];
+
+            if (dd == null)
+                continue;
+
+            RectTransform ddRect = (RectTransform)dd.transform;
+            Transform tpl = ddRect.Find("Template");
+
+            Debug.Log($"[LiveAudio] 槽{i} dd=({ddRect.anchoredPosition.x:0},{ddRect.anchoredPosition.y:0}) "
+                + $"size={ddRect.rect.size} options={dd.options.Count} value={dd.value} "
+                + $"template={(tpl != null ? tpl.gameObject.activeSelf.ToString() : "<无>")}");
         }
 
         for (int i = 0; i < VocalSlotCount; i++)
@@ -93,32 +111,56 @@ public partial class UmaViewerUI
         if (Main == null || Main.AbSounds == null)
             return;
 
-        string prefix = "snd_bgm_live_" + songId + "_chara";
+        // Name 可能是 "sound/live/snd_bgm_live_1001_chara_1001"，也可能是带扩展名/带前缀的写法，
+        // 所以整条串上找，不依赖文件名位置。
+        System.Text.RegularExpressions.Regex pattern = new System.Text.RegularExpressions.Regex(
+            "snd_bgm_live_" + songId + "_chara_?([0-9]{4})",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
         HashSet<int> seen = new HashSet<int>();
 
         foreach (UmaDatabaseEntry entry in Main.AbSounds)
         {
-            if (entry == null || string.IsNullOrEmpty(entry.Name) || !entry.Name.EndsWith("awb"))
+            if (entry == null || string.IsNullOrEmpty(entry.Name))
                 continue;
 
-            string file = Path.GetFileNameWithoutExtension(entry.Name);
+            System.Text.RegularExpressions.Match m = pattern.Match(entry.Name);
 
-            if (!file.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
+            if (!m.Success)
                 continue;
 
-            string[] parts = file.Split('_');
-
-            if (parts.Length < 2)
-                continue;
-
-            if (!int.TryParse(parts[parts.Length - 2], out int id) || id <= 0)
-                continue;
-
-            if (seen.Add(id))
+            if (int.TryParse(m.Groups[1].Value, out int id) && id > 0 && seen.Add(id))
                 _vocalSingerIds.Add(id);
         }
 
         _vocalSingerIds.Sort();
+
+        if (_vocalSingerIds.Count == 0)
+        {
+            // 一个都没筛到：把 AbSounds 里像音频的样本打出来，好确认 naming 到底长什么样
+            int shown = 0;
+
+            foreach (UmaDatabaseEntry entry in Main.AbSounds)
+            {
+                if (entry == null || string.IsNullOrEmpty(entry.Name))
+                    continue;
+
+                if (!entry.Name.Contains("bgm_live") && !entry.Name.EndsWith("awb"))
+                    continue;
+
+                Debug.Log("[LiveAudio] AbSounds 样本: " + entry.Name);
+
+                if (++shown >= 8)
+                    break;
+            }
+
+            Debug.LogWarning($"[LiveAudio] 歌曲 {songId} 没有筛到任何歌手（prefix=snd_bgm_live_{songId}_chara*）");
+        }
+        else
+        {
+            Debug.Log($"[LiveAudio] 歌曲 {songId}: {_vocalSingerIds.Count} 位歌手 -> "
+                + string.Join(",", _vocalSingerIds.ConvertAll(x => x.ToString()).ToArray()));
+        }
     }
 
     /// <summary>把某个槽位当前的选择写进 Director.VocalCharaIds（-1 = 自动）。</summary>
@@ -291,6 +333,9 @@ public partial class UmaViewerUI
         dropdown.captionText = captionText;
         dropdown.itemText = itemText;
         dropdown.template = templateRect;
+
+        // 模板必须保持关闭：TMP_Dropdown 只在自己 Show() 的瞬间克隆它
+        template.SetActive(false);
 
         return dropdown;
     }

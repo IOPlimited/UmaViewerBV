@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Gallop
 {
@@ -96,7 +96,7 @@ namespace Gallop
         {
             public const string Chara1001 = "特别周"; // スペシャルウィーク
             public const string Chara1002 = "无声铃鹿"; // サイレンススズカ
-            public const string Chara1003 = "东海帝皇"; // トウカイテイオー
+            public const string Chara1003 = "东海帝王"; // トウカイテイオー
             public const string Chara1004 = "丸善斯基"; // マルゼンスキー
             public const string Chara1005 = "富士奇石"; // フジキセキ
             public const string Chara1006 = "小栗帽"; // オグリキャップ
@@ -113,7 +113,7 @@ namespace Gallop
             public const string Chara1017 = "鲁道夫象征"; // シンボリルドルフ
             public const string Chara1018 = "气槽"; // エアグルーヴ
             public const string Chara1019 = "爱丽数码"; // アグネスデジタル
-            public const string Chara1020 = "星云天空"; // セイウンスカイ
+            public const string Chara1020 = "青云天空"; // セイウンスカイ
             public const string Chara1021 = "玉藻十字"; // タマモクロス
             public const string Chara1022 = "美妙姿势"; // ファインモーション
             public const string Chara1023 = "琵琶晨光"; // ビワハヤヒデ
@@ -145,7 +145,7 @@ namespace Gallop
             public const string Chara1049 = "中山庆典"; // ナカヤマフェスタ
             public const string Chara1050 = "成田大进"; // ナリタタイシン
             public const string Chara1051 = "西野花"; // ニシノフラワー
-            public const string Chara1052 = "春乌菈菈"; // ハルウララ
+            public const string Chara1052 = "春丽"; // ハルウララ
             public const string Chara1053 = "青竹回忆"; // バンブーメモリー
             public const string Chara1054 = "微光飞驹"; // ビコーペガサス
             public const string Chara1055 = "美丽周日"; // マーベラスサンデー
@@ -154,7 +154,7 @@ namespace Gallop
             public const string Chara1058 = "名将怒涛"; // メイショウドトウ
             public const string Chara1059 = "目白多伯"; // メジロドーベル
             public const string Chara1060 = "优秀素质"; // ナイスネイチャ
-            public const string Chara1061 = "帝王光辉"; // キングヘイロー
+            public const string Chara1061 = "圣王光环"; // キングヘイロー
             public const string Chara1062 = "待兼诗歌剧"; // マチカネタンホイザ
             public const string Chara1063 = "生野狄杜斯"; // イクノディクタス
             public const string Chara1064 = "目白善信"; // メジロパーマー
@@ -171,15 +171,15 @@ namespace Gallop
             public const string Chara1075 = "谋勇兼备"; // デアリングタクト
             public const string Chara1076 = "樱花桂冠"; // サクラローレル
             public const string Chara1077 = "成田路"; // ナリタトップロード
-            public const string Chara1078 = "山人西风"; // ヤマニンゼファー
-            public const string Chara1079 = "狂热激昂"; // フリオーソ
+            public const string Chara1078 = "也文摄辉"; // ヤマニンゼファー
+            public const string Chara1079 = "狂怒乐章"; // フリオーソ
             public const string Chara1080 = "创升"; // トランセンド
             public const string Chara1081 = "希望之城"; // エスポワールシチー
             public const string Chara1082 = "北方飞翔"; // ノースフライト
             public const string Chara1083 = "吉兆"; // シンボリクリスエス
             public const string Chara1084 = "谷野美酒"; // タニノギムレット
-            public const string Chara1085 = "第一红宝"; // ダイイチルビー
-            public const string Chara1086 = "目白拉莫奴"; // メジロラモーヌ
+            public const string Chara1085 = "第一红宝石"; // ダイイチルビー
+            public const string Chara1086 = "目白高峰"; // メジロラモーヌ
             public const string Chara1087 = "真弓快车"; // アストンマーチャン
             public const string Chara1088 = "里见皇冠"; // サトノクラウン
             public const string Chara1089 = "高尚骏逸"; // シュヴァルグラン
@@ -203,9 +203,9 @@ namespace Gallop
             public const string Chara1108 = "大鸣大放"; // ドゥラメンテ
             public const string Chara1109 = "莱茵力量"; // ラインクラフト
             public const string Chara1110 = "西沙里奥"; // シーザリオ
-            public const string Chara1111 = "空中弥赛亚"; // エアメサイア
+            public const string Chara1111 = "空中救主"; // エアメサイア
             public const string Chara1112 = "勇敢之心"; // デアリングハート
-            public const string Chara1113 = "火神"; // フサイチパンドラ
+            public const string Chara1113 = "房一潘多拉"; // フサイチパンドラ
             public const string Chara1114 = "迷人景致"; // ブエナビスタ
             public const string Chara1115 = "黄金巨匠"; // オルフェーヴル
             public const string Chara1116 = "贵妇人"; // ジェンティルドンナ
@@ -228,15 +228,15 @@ namespace Gallop
             public const string Chara1136 = "红色梦想"; // レッドディザイア
             public const string Chara1137 = "神业"; // キセキ
             public const string Chara1138 = "青春永驻"; // フォーエバーヤング
-            public const string Chara1139 = "赌城大道"; // カジノドライヴ
+            public const string Chara1139 = "夺金旅途"; // カジノドライヴ
             public const string Chara1140 = "洛林军歌"; // マルシュロレーヌ
             public const string Chara1141 = "神威启示"; // エピファネイア
             public const string Chara1142 = "标志名驹"; // ロゴタイプ
             public const string Chara1143 = "比萨胜驹"; // ヴィクトワールピサ
             public const string Chara1144 = "玫瑰帝国"; // ローズキングダム
             public const string Chara1145 = "统治地位"; // ルーラーシップ
-            public const string Chara2005 = "卓芙";
-            public const string Chara9001 = "俊川手纲(绿巨人)";
+            public const string Chara2005 = "金星复活节";
+            public const string Chara9001 = "骏川手纲";
             public const string Chara9002 = "秋川理事长";
 
 
