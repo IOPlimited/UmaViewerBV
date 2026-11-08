@@ -42,9 +42,9 @@ public partial class UmaViewerUI
         {
             _vocalLabelsBuilt = true;
 
-            LiveRenderUI.Text("语音选择：", root, new Vector2(-260f, -10f), new Vector2(150f, 32f), 21);
+            LiveRenderUI.Text("语音选择：", root, new Vector2(-300f, -178f), new Vector2(150f, 32f), 21);
 
-            _vocalModeDropdown = CreateDropdown(root, new Vector2(10f, -10f), new Vector2(220f, 34f));
+            _vocalModeDropdown = CreateDropdown(root, new Vector2(-140f, -178f), new Vector2(200f, 34f));
 
             if (_vocalModeDropdown != null)
             {
@@ -60,10 +60,23 @@ public partial class UmaViewerUI
 
             for (int i = 0; i < VocalSlotCount; i++)
             {
+                // Solo 用 0 号（和模式下拉同一行）；Mix 时 1..6 号在下面两行铺开，
+                // 每个 130 宽，够放「大和赤骥」这类四字名
+                Vector2 slotPos;
+
+                if (i == 0)
+                    slotPos = new Vector2(100f, -178f);
+                else
+                {
+                    int row = (i - 1) / 4;
+                    int col = (i - 1) % 4;
+                    slotPos = new Vector2(-300f + col * 140f, -222f - row * 40f);
+                }
+
                 _vocalSlotDropdowns[i] = CreateDropdown(
                     root,
-                    new Vector2(-300f + i * 92f, -52f),
-                    new Vector2(86f, 30f));
+                    slotPos,
+                    new Vector2(i == 0 ? 130f : 130f, 32f));
 
                 if (_vocalSlotDropdowns[i] != null)
                 {
@@ -91,16 +104,23 @@ public partial class UmaViewerUI
                 + $"template={(tpl != null ? tpl.gameObject.activeSelf.ToString() : "<无>")}");
         }
 
-        for (int i = 0; i < VocalSlotCount; i++)
-            FillVocalSlotDropdown(i);
+        FillVocalSlotDropdown(0);
 
-        // Solo concert 只允许第 1 个槽位发声，其余下拉置灰。
-        int limit = _vocalModeDropdown != null && _vocalModeDropdown.value == 0 ? 1 : VocalSlotCount;
+        // Solo concert 只有一个演唱位，多余的槽位直接收起来，不占地方也不误导。
+        bool solo = _vocalModeDropdown == null || _vocalModeDropdown.value == 0;
 
-        for (int i = 0; i < VocalSlotCount; i++)
+        for (int i = 1; i < VocalSlotCount; i++)
         {
-            if (_vocalSlotDropdowns[i] != null)
-                _vocalSlotDropdowns[i].interactable = i < limit;
+            if (_vocalSlotDropdowns[i] == null)
+                continue;
+
+            _vocalSlotDropdowns[i].gameObject.SetActive(!solo);
+        }
+
+        if (!solo)
+        {
+            for (int i = 1; i < VocalSlotCount; i++)
+                FillVocalSlotDropdown(i);
         }
     }
 
@@ -221,13 +241,17 @@ public partial class UmaViewerUI
 
     private void OnVocalModeChanged(int mode)
     {
-        // 切换模式后重新约束可编辑的槽位；不需要重建整块面板。
-        int limit = mode == 0 ? 1 : VocalSlotCount;
+        bool solo = mode == 0;
 
-        for (int i = 0; i < VocalSlotCount; i++)
+        for (int i = 1; i < VocalSlotCount; i++)
         {
-            if (_vocalSlotDropdowns[i] != null)
-                _vocalSlotDropdowns[i].interactable = i < limit;
+            if (_vocalSlotDropdowns[i] == null)
+                continue;
+
+            _vocalSlotDropdowns[i].gameObject.SetActive(!solo);
+
+            if (!solo)
+                FillVocalSlotDropdown(i);
         }
     }
 
@@ -244,7 +268,7 @@ public partial class UmaViewerUI
         rect.sizeDelta = size;
 
         Image background = go.GetComponent<Image>();
-        background.color = new Color(0.95f, 0.95f, 0.95f, 0.95f);
+        background.color = Color.white;
 
         // Caption
         GameObject caption = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
@@ -258,10 +282,29 @@ public partial class UmaViewerUI
         TextMeshProUGUI captionText = caption.GetComponent<TextMeshProUGUI>();
         captionText.font = TMP_Settings.defaultFontAsset;
         captionText.fontSize = 16f;
-        captionText.color = new Color(0.12f, 0.12f, 0.12f, 1f);
+        captionText.fontStyle = FontStyles.Bold;
+        captionText.color = new Color(0.11f, 0.11f, 0.13f, 1f);
         captionText.alignment = TextAlignmentOptions.MidlineLeft;
         captionText.raycastTarget = false;
         captionText.enableWordWrapping = false;
+
+        // 右侧展开箭头，和设置面板里 MSAA 那个下拉一致
+        GameObject arrow = new GameObject("Arrow", typeof(RectTransform), typeof(TextMeshProUGUI));
+        arrow.transform.SetParent(go.transform, false);
+        RectTransform arrowRect = (RectTransform)arrow.transform;
+        arrowRect.anchorMin = new Vector2(1f, 0.5f);
+        arrowRect.anchorMax = new Vector2(1f, 0.5f);
+        arrowRect.pivot = new Vector2(1f, 0.5f);
+        arrowRect.anchoredPosition = new Vector2(-10f, 0f);
+        arrowRect.sizeDelta = new Vector2(16f, 16f);
+
+        TextMeshProUGUI arrowText = arrow.GetComponent<TextMeshProUGUI>();
+        arrowText.text = "▼";
+        arrowText.font = TMP_Settings.defaultFontAsset;
+        arrowText.fontSize = 12f;
+        arrowText.color = new Color(0.11f, 0.11f, 0.13f, 0.75f);
+        arrowText.alignment = TextAlignmentOptions.Center;
+        arrowText.raycastTarget = false;
 
         // Template
         GameObject template = new GameObject("Template", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
@@ -313,13 +356,33 @@ public partial class UmaViewerUI
         TextMeshProUGUI itemText = itemLabel.GetComponent<TextMeshProUGUI>();
         itemText.font = TMP_Settings.defaultFontAsset;
         itemText.fontSize = 16f;
+        itemText.fontStyle = FontStyles.Bold;
         itemText.color = new Color(0.12f, 0.12f, 0.12f, 1f);
         itemText.alignment = TextAlignmentOptions.MidlineLeft;
         itemText.raycastTarget = false;
         itemText.enableWordWrapping = false;
 
+        // 勾选标记：选中项左边显示一个对勾，跟 MSAA 下拉的列表一致
+        GameObject check = new GameObject("Item Checkmark", typeof(RectTransform), typeof(TextMeshProUGUI));
+        check.transform.SetParent(item.transform, false);
+        RectTransform checkRect = (RectTransform)check.transform;
+        checkRect.anchorMin = new Vector2(0f, 0.5f);
+        checkRect.anchorMax = new Vector2(0f, 0.5f);
+        checkRect.pivot = new Vector2(0f, 0.5f);
+        checkRect.anchoredPosition = new Vector2(4f, 0f);
+        checkRect.sizeDelta = new Vector2(16f, 16f);
+
+        TextMeshProUGUI checkText = check.GetComponent<TextMeshProUGUI>();
+        checkText.text = "✓";
+        checkText.font = TMP_Settings.defaultFontAsset;
+        checkText.fontSize = 14f;
+        checkText.color = new Color(0.11f, 0.11f, 0.13f, 1f);
+        checkText.alignment = TextAlignmentOptions.Center;
+        checkText.raycastTarget = false;
+
         Toggle toggle = item.GetComponent<Toggle>();
-        toggle.targetGraphic = templateImage;   // 勾选标记留空：下拉靠高亮，不需要 checkmark
+        toggle.targetGraphic = templateImage;
+        toggle.graphic = checkText;
 
         ScrollRect scroll = template.GetComponent<ScrollRect>();
         scroll.content = contentRect;
