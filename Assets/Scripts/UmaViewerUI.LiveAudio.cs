@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using TMPro;
+using UnityEngine.Events;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,11 +16,50 @@ public partial class UmaViewerUI
 {
     private const int VocalSlotCount = 7;
 
+    /// <summary>自定义控件整块的纵向位置（相对“成员数”那行）。槽位网格之下、Play/Render 之上。</summary>
+    private const float LiveAudioBarY = -500f;
+
+    private RectTransform _liveAudioBar;
+
     private TMP_Dropdown _vocalModeDropdown;
     private TMP_Dropdown[] _vocalSlotDropdowns = new TMP_Dropdown[VocalSlotCount];
     private readonly List<int> _vocalSingerIds = new List<int>();
     private int _vocalSingerSongId = -1;
     private bool _vocalLabelsBuilt;
+
+    /// <summary>
+    /// 自建控件统一挂到这一块里：位置只在这里定一次，语音选择和两颗按钮就不会各自漂移。
+    /// 提到同级最上层（SetAsLastSibling），避免被 Subtitles / Recommended cast 那些场景节点盖住。
+    /// </summary>
+    private RectTransform GetOrCreateLiveAudioBar()
+    {
+        if (_liveAudioBar != null)
+            return _liveAudioBar;
+
+        if (LiveSelectInfoText == null)
+            return null;
+
+        RectTransform host = LiveSelectInfoText.transform as RectTransform;
+
+        if (host == null)
+            return null;
+
+        GameObject go = new GameObject("LiveAudioBar", typeof(RectTransform));
+        go.transform.SetParent(host, false);
+
+        RectTransform rect = (RectTransform)go.transform;
+        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(0f, LiveAudioBarY);
+        rect.sizeDelta = new Vector2(620f, 40f);
+        rect.SetAsLastSibling();
+
+        Debug.Log($"[LiveAudio] bar @ {rect.anchoredPosition} size={rect.sizeDelta} "
+            + $"host={host.name} hostSize={host.rect.size}");
+
+        _liveAudioBar = rect;
+        return rect;
+    }
 
     /// <summary>在 Live 选择面板里建/刷新音频选择控件。</summary>
     private void EnsureLiveVocalPanel(LiveEntry entry)
@@ -42,9 +82,14 @@ public partial class UmaViewerUI
         {
             _vocalLabelsBuilt = true;
 
-            LiveRenderUI.Text("语音选择：", root, new Vector2(-300f, -6f), new Vector2(150f, 32f), 21);
+            RectTransform bar = GetOrCreateLiveAudioBar();
 
-            _vocalModeDropdown = CreateDropdown(root, new Vector2(-110f, -6f), new Vector2(190f, 34f));
+            if (bar == null)
+                return;
+
+            LiveRenderUI.Text("语音选择：", bar, new Vector2(-185f, 0f), new Vector2(110f, 28f), 19);
+
+            _vocalModeDropdown = CreateDropdown(bar, new Vector2(-20f, 0f), new Vector2(200f, 34f));
 
             if (_vocalModeDropdown != null)
             {
@@ -59,7 +104,7 @@ public partial class UmaViewerUI
             }
 
             // 只有 Solo 需要选音轨；Mix 交给生成器自己的默认分配
-            _vocalSlotDropdowns[0] = CreateDropdown(root, new Vector2(90f, -6f), new Vector2(150f, 34f));
+            _vocalSlotDropdowns[0] = CreateDropdown(bar, new Vector2(165f, 0f), new Vector2(150f, 34f));
 
             if (_vocalSlotDropdowns[0] != null)
                 _vocalSlotDropdowns[0].onValueChanged.AddListener(index => OnVocalSlotChanged(0, index));
@@ -242,6 +287,25 @@ public partial class UmaViewerUI
                     director.VocalCharaIds[i] = -1;
             }
         }
+    }
+
+    /// <summary>
+    /// 比 LiveRenderUI.Button（固定 240x42）小一号的按钮，用来塞进 Play/Render 那一行两侧。
+    /// </summary>
+    private Button CreateCompactButton(string label, Transform parent, Vector2 position,
+        Vector2 size, int fontSize, UnityAction action)
+    {
+        RectTransform rect = LiveRenderUI.Panel(label, parent, size);
+        rect.anchoredPosition = position;
+        rect.GetComponent<Image>().color = new Color(0.20f, 0.30f, 0.42f, 1f);
+
+        Button button = rect.gameObject.AddComponent<Button>();
+        button.targetGraphic = rect.GetComponent<Image>();
+        button.onClick.AddListener(action);
+
+        LiveRenderUI.Text(label, rect, Vector2.zero, size - new Vector2(8f, 6f), fontSize);
+
+        return button;
     }
 
     /// <summary>造一个能用的 TMP_Dropdown（含 Template/Viewport/Content/Item/ScrollRect）。</summary>
