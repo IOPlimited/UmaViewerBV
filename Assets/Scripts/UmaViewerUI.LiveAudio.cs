@@ -16,8 +16,16 @@ public partial class UmaViewerUI
 {
     private const int VocalSlotCount = 7;
 
-    /// <summary>自定义控件整块的纵向位置（相对“成员数”那行）。槽位网格之下、Play/Render 之上。</summary>
-    private const float LiveAudioBarY = -500f;
+    /// <summary>
+    /// 自建控件整块相对“成员数”那行的偏移。运行时创建的节点没法在 Scene 视图里拖，
+    /// 所以把位置暴露到 Inspector：选中场景里挂 UmaViewerUI 的对象即可直接改。
+    /// </summary>
+    [Header("Live 选择面板 · 自建控件")]
+    [Tooltip("距面板底边的高度。整行锚在面板底部，和 Play/Render 那一行上方对齐。")]
+    [SerializeField] private float liveAudioBarBottom = 78f;
+
+    [Tooltip("整行宽度。面板实际宽度会在运行时变化，所以给固定宽度并水平居中。")]
+    [SerializeField] private float liveAudioBarWidth = 700f;
 
     private RectTransform _liveAudioBar;
 
@@ -44,18 +52,25 @@ public partial class UmaViewerUI
         if (host == null)
             return null;
 
+        // 挂到面板本身（LiveInfo 的父级），锚在底边：面板运行时尺寸/位置怎么变都跟得住
+        RectTransform panel = host.parent as RectTransform;
+
+        if (panel == null)
+            panel = host;
+
         GameObject go = new GameObject("LiveAudioBar", typeof(RectTransform));
-        go.transform.SetParent(host, false);
+        go.transform.SetParent(panel, false);
 
         RectTransform rect = (RectTransform)go.transform;
-        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-        rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(0f, LiveAudioBarY);
-        rect.sizeDelta = new Vector2(620f, 40f);
+        rect.anchorMin = new Vector2(0.5f, 0f);
+        rect.anchorMax = new Vector2(0.5f, 0f);
+        rect.pivot = new Vector2(0.5f, 0f);
+        rect.anchoredPosition = new Vector2(0f, liveAudioBarBottom);
+        rect.sizeDelta = new Vector2(liveAudioBarWidth, 40f);
         rect.SetAsLastSibling();
 
-        Debug.Log($"[LiveAudio] bar @ {rect.anchoredPosition} size={rect.sizeDelta} "
-            + $"host={host.name} hostSize={host.rect.size}");
+        Debug.Log($"[LiveAudio] bar parent={panel.name} panelSize={panel.rect.size} "
+            + $"pos={rect.anchoredPosition} size={rect.sizeDelta}");
 
         _liveAudioBar = rect;
         return rect;
@@ -87,9 +102,9 @@ public partial class UmaViewerUI
             if (bar == null)
                 return;
 
-            LiveRenderUI.Text("语音选择：", bar, new Vector2(-185f, 0f), new Vector2(110f, 28f), 19);
+            LiveRenderUI.Text("语音选择：", bar, new Vector2(-295f, 0f), new Vector2(90f, 28f), 18);
 
-            _vocalModeDropdown = CreateDropdown(bar, new Vector2(-20f, 0f), new Vector2(200f, 34f));
+            _vocalModeDropdown = CreateDropdown(bar, new Vector2(-165f, 0f), new Vector2(160f, 34f));
 
             if (_vocalModeDropdown != null)
             {
@@ -98,13 +113,16 @@ public partial class UmaViewerUI
                     new TMP_Dropdown.OptionData(UiLocalization.T("Solo concert")));
                 _vocalModeDropdown.options.Add(
                     new TMP_Dropdown.OptionData(UiLocalization.T("Mix voices")));
-                _vocalModeDropdown.SetValueWithoutNotify(0);
+                FitDropdownTemplate(_vocalModeDropdown);
+
+                // 默认混合声部：交给生成器自己分配，独唱才需要指定歌手
+                _vocalModeDropdown.SetValueWithoutNotify(1);
                 _vocalModeDropdown.RefreshShownValue();
                 _vocalModeDropdown.onValueChanged.AddListener(OnVocalModeChanged);
             }
 
             // 只有 Solo 需要选音轨；Mix 交给生成器自己的默认分配
-            _vocalSlotDropdowns[0] = CreateDropdown(bar, new Vector2(165f, 0f), new Vector2(150f, 34f));
+            _vocalSlotDropdowns[0] = CreateDropdown(bar, new Vector2(-25f, 0f), new Vector2(130f, 34f));
 
             if (_vocalSlotDropdowns[0] != null)
                 _vocalSlotDropdowns[0].onValueChanged.AddListener(index => OnVocalSlotChanged(0, index));
@@ -224,6 +242,8 @@ public partial class UmaViewerUI
                 selected = i + 1;
         }
 
+        FitDropdownTemplate(dd);
+
         dd.SetValueWithoutNotify(selected);
         dd.RefreshShownValue();
     }
@@ -308,6 +328,28 @@ public partial class UmaViewerUI
         return button;
     }
 
+    /// <summary>
+    /// 列表高度按项数收放：2 项就不再拖一条 180 高的空白，超过 6 项才出现滚动。
+    /// </summary>
+    private void FitDropdownTemplate(TMP_Dropdown dropdown)
+    {
+        if (dropdown == null || dropdown.template == null)
+            return;
+
+        const float itemHeight = 30f;
+        const float maxHeight = 190f;
+
+        int count = Mathf.Max(1, dropdown.options.Count);
+        float height = Mathf.Min(4f + itemHeight * count, maxHeight);
+
+        dropdown.template.sizeDelta = new Vector2(dropdown.template.sizeDelta.x, height);
+
+        Transform content = dropdown.template.Find("Viewport/Content");
+
+        if (content is RectTransform contentRect)
+            contentRect.sizeDelta = new Vector2(contentRect.sizeDelta.x, itemHeight * count);
+    }
+
     /// <summary>造一个能用的 TMP_Dropdown（含 Template/Viewport/Content/Item/ScrollRect）。</summary>
     private TMP_Dropdown CreateDropdown(Transform parent, Vector2 position, Vector2 size)
     {
@@ -388,9 +430,11 @@ public partial class UmaViewerUI
         contentRect.anchorMin = new Vector2(0f, 1f);
         contentRect.anchorMax = new Vector2(1f, 1f);
         contentRect.pivot = new Vector2(0.5f, 1f);
-        contentRect.sizeDelta = new Vector2(0f, 30f * System.Math.Max(1, _vocalSingerIds.Count + 1));
+        contentRect.sizeDelta = new Vector2(0f, 30f);
 
-        GameObject item = new GameObject("Item", typeof(RectTransform), typeof(Toggle));
+        // 必须自带 Graphic：Toggle 靠射线命中 targetGraphic 才收到点击，
+        // 指向 Template 背景那张图（不在 Item 层级下）是点不动的。
+        GameObject item = new GameObject("Item", typeof(RectTransform), typeof(Image), typeof(Toggle));
         item.transform.SetParent(content.transform, false);
         RectTransform itemRect = (RectTransform)item.transform;
         itemRect.anchorMin = new Vector2(0f, 1f);
@@ -433,8 +477,12 @@ public partial class UmaViewerUI
         checkText.alignment = TextAlignmentOptions.Center;
         checkText.raycastTarget = false;
 
+        Image itemHit = item.GetComponent<Image>();
+        itemHit.color = new Color(1f, 1f, 1f, 0f);   // 透明但可接收点击
+        itemHit.raycastTarget = true;
+
         Toggle toggle = item.GetComponent<Toggle>();
-        toggle.targetGraphic = templateImage;
+        toggle.targetGraphic = itemHit;
         toggle.graphic = checkText;
 
         ScrollRect scroll = template.GetComponent<ScrollRect>();
@@ -443,6 +491,46 @@ public partial class UmaViewerUI
         scroll.horizontal = false;
         scroll.vertical = true;
         scroll.movementType = ScrollRect.MovementType.Clamped;
+
+        // 垂直滚动条：项多的时候（歌手列表常见十几个）必须能滚
+        GameObject scrollbarGo = new GameObject("Scrollbar", typeof(RectTransform), typeof(Image), typeof(Scrollbar));
+        scrollbarGo.transform.SetParent(template.transform, false);
+        RectTransform scrollbarRect = (RectTransform)scrollbarGo.transform;
+        scrollbarRect.anchorMin = new Vector2(1f, 0f);
+        scrollbarRect.anchorMax = new Vector2(1f, 1f);
+        scrollbarRect.pivot = new Vector2(1f, 0.5f);
+        scrollbarRect.offsetMin = new Vector2(-12f, 2f);
+        scrollbarRect.offsetMax = new Vector2(-2f, -2f);
+
+        Image scrollbarBg = scrollbarGo.GetComponent<Image>();
+        scrollbarBg.color = new Color(0.88f, 0.88f, 0.90f, 1f);
+
+        GameObject slidingArea = new GameObject("Sliding Area", typeof(RectTransform));
+        slidingArea.transform.SetParent(scrollbarGo.transform, false);
+        RectTransform slidingRect = (RectTransform)slidingArea.transform;
+        slidingRect.anchorMin = Vector2.zero;
+        slidingRect.anchorMax = Vector2.one;
+        slidingRect.offsetMin = new Vector2(1f, 1f);
+        slidingRect.offsetMax = new Vector2(-1f, -1f);
+
+        GameObject handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
+        handle.transform.SetParent(slidingArea.transform, false);
+        RectTransform handleRect = (RectTransform)handle.transform;
+        handleRect.anchorMin = Vector2.zero;
+        handleRect.anchorMax = Vector2.one;
+        handleRect.offsetMin = Vector2.zero;
+        handleRect.offsetMax = Vector2.zero;
+
+        Image handleImage = handle.GetComponent<Image>();
+        handleImage.color = new Color(0.55f, 0.58f, 0.62f, 1f);
+
+        Scrollbar scrollbar = scrollbarGo.GetComponent<Scrollbar>();
+        scrollbar.handleRect = handleRect;
+        scrollbar.targetGraphic = handleImage;
+        scrollbar.direction = Scrollbar.Direction.BottomToTop;
+
+        scroll.verticalScrollbar = scrollbar;
+        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
 
         TMP_Dropdown dropdown = go.GetComponent<TMP_Dropdown>();
         dropdown.targetGraphic = background;

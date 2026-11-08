@@ -167,6 +167,7 @@ public partial class UmaViewerUI : MonoBehaviour
         UmaAssetManager.OnLoadedBundleClear -= AssetSettings.LoadedAssetsClear;
     }
 
+
     private void Update()
     {
         if (Builder.CurrentAudioSources.Count > 0 && Builder.CurrentAudioSources[0])
@@ -949,22 +950,19 @@ public partial class UmaViewerUI : MonoBehaviour
         if (_liveSlotActionsBuilt)
             return;
 
-        RectTransform host = LiveSelectInfoText != null
-            ? LiveSelectInfoText.transform as RectTransform
-            : null;
+        RectTransform bar = GetOrCreateLiveAudioBar();
 
-        if (host == null)
+        if (bar == null)
             return;
 
         _liveSlotActionsBuilt = true;
 
-        // 缩小的两颗按钮分列底部 Play / Render 两侧：左侧贴在 Play 左边，
-        // 右侧贴在 Render 右边，纵向与它们同一行，不再压 Recommended cast。
-        CreateCompactButton(UiLocalization.T("Copy slot 1"), host,
-            new Vector2(-262f, -575f), new Vector2(112f, 30f), 14, CopySlot1ToRest);
+        // 与语音选择下拉并排同一行，整块位置由 liveAudioBarOffset 控制
+        CreateCompactButton(UiLocalization.T("Copy slot 1"), bar,
+            new Vector2(115f, 0f), new Vector2(112f, 30f), 14, CopySlot1ToRest);
 
-        CreateCompactButton(UiLocalization.T("Randomize costume 1"), host,
-            new Vector2(246f, -575f), new Vector2(112f, 30f), 14, RandomizeCostumes);
+        CreateCompactButton(UiLocalization.T("Randomize costume 1"), bar,
+            new Vector2(235f, 0f), new Vector2(112f, 30f), 14, RandomizeCostumes);
     }
 
     /// <summary>槽位 1 为空时找任意一个已填好的槽位当源；都空就返回 null。</summary>

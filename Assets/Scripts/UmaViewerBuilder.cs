@@ -1183,10 +1183,80 @@ public class UmaViewerBuilder : MonoBehaviour
         return new AwbReader(File.OpenRead(external.FilePath));
     }
 
+    /// <summary>
+    /// 读取打包在 Resources 里的歌词译文（键是毫秒时间戳，值形如“日文原文 + 换行 + 中文译文”）。
+    /// 只有中文界面才用，返回 null 表示这歌没有译文。
+    /// </summary>
+    private static void LoadLyricTranslations(int songid,
+        out Dictionary<int, string> byMs, out Dictionary<string, string> byText)
+    {
+        byMs = null;
+        byText = null;
+
+        TextAsset asset = Resources.Load<TextAsset>($"Localize/lyrics/m{songid}_lyrics");
+
+        if (asset == null)
+            return;
+
+        try
+        {
+            var raw = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(asset.text);
+
+            if (raw == null || raw.Count == 0)
+                return;
+
+            byMs = new Dictionary<int, string>(raw.Count);
+            byText = new Dictionary<string, string>(raw.Count);
+
+            foreach (var pair in raw)
+            {
+                if (string.IsNullOrEmpty(pair.Value))
+                    continue;
+
+                // 值形如「日文原文」+ 换行 +「中文译文」
+                int split = pair.Value.LastIndexOf((char)10);
+
+                if (split < 0)
+                    continue;
+
+                string ja = pair.Value.Substring(0, split).Trim();
+                string zh = pair.Value.Substring(split + 1).Trim();
+
+                if (zh.Length == 0)
+                    continue;
+
+                if (int.TryParse(pair.Key, out int ms))
+                    byMs[ms] = zh;
+
+                // 时间对不上时按原文兜底（两边同源，文本通常一致）
+                if (ja.Length > 0)
+                    byText[ja] = zh;
+            }
+
+            if (byMs.Count == 0)
+                byMs = null;
+            if (byText.Count == 0)
+                byText = null;
+        }
+        catch (Exception error)
+        {
+            Debug.LogWarning($"[Lyrics] {songid} 译文解析失败: {error.Message}");
+        }
+    }
+
     public List<UmaLyricsData> LoadLiveLyrics(int songid)
     {
         if (CurrentLyrics.Count > 0)
             CurrentLyrics.Clear();
+
+        bool useChinese = Config.Instance != null && Config.Instance.Language == Language.Cn;
+        Dictionary<int, string> zhByMs = null;
+        Dictionary<string, string> zhByText = null;
+
+        if (useChinese)
+            LoadLyricTranslations(songid, out zhByMs, out zhByText);
+
+        int translated = 0;
         string lyricsVar = $"live/musicscores/m{songid}/m{songid}_lyrics";
         UmaDatabaseEntry lyricsAsset = Main.AbList[lyricsVar];
         AssetBundle bundle = UmaAssetManager.LoadAssetBundle(lyricsAsset);
@@ -1202,10 +1272,27 @@ public class UmaViewerBuilder : MonoBehaviour
                 continue;
             if (!float.TryParse(words[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float timeMs))
                 continue;
+            string lineText = words[1];
+
+            // 先按毫秒时间戳匹配，对不上再按日文原文匹配
+            string zh = null;
+
+            if (zhByMs != null)
+                zhByMs.TryGetValue(Mathf.RoundToInt(timeMs), out zh);
+
+            if (zh == null && zhByText != null)
+                zhByText.TryGetValue(words[1].Trim(), out zh);
+
+            if (zh != null)
+            {
+                lineText = zh;
+                translated++;
+            }
+
             var lyricsData = new UmaLyricsData
             {
                 time = timeMs / 1000f,
-                text = words[1]
+                text = lineText
             };
             // Original LyricsController.LyricsCSVColumn: 2=type, 3=value.
             if (words.Length > 2 && int.TryParse(words[2], out int settingType))
@@ -1214,6 +1301,9 @@ public class UmaViewerBuilder : MonoBehaviour
                 lyricsData.additionalSettingValue = settingValue;
             CurrentLyrics.Add(lyricsData);
         }
+
+        if (useChinese)
+            Debug.Log($"[Lyrics] 歌曲 {songid}: {CurrentLyrics.Count} 行，其中 {translated} 行用了中文译文");
 
         return CurrentLyrics;
     }

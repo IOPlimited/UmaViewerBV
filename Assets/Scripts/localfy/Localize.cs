@@ -687,8 +687,12 @@ namespace Gallop
                     case 9002:
                         return Chara9002;
 
+                    // ── 手动覆盖区：表里没有或译错的，写在这里，优先级高于 zh-CN-names.json ──
+                    case 9052:
+                        return "吾妻";
+
                     default:
-                        return fallbackName ?? string.Empty;
+                        return LocalizeTables.GetCharaName(charaId) ?? fallbackName ?? string.Empty;
                 }
             }
 
@@ -703,6 +707,13 @@ namespace Gallop
                     return runtimeValue;
                 }
 
+                // 手动覆盖区（与 GetCharaName 保持一致）
+                switch (mobId)
+                {
+                    case 9052:
+                        return "吾妻";
+                }
+
                 /*
                  * Mob 中文名以后直接在这里添加：
                  *
@@ -713,7 +724,7 @@ namespace Gallop
                  * }
                  */
 
-                return fallbackName ?? string.Empty;
+                return LocalizeTables.GetMobName(mobId) ?? fallbackName ?? string.Empty;
             }
 
             public static void SetCharaName(int charaId, string value)
