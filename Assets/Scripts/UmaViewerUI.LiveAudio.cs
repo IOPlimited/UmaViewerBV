@@ -58,32 +58,11 @@ public partial class UmaViewerUI
                 _vocalModeDropdown.onValueChanged.AddListener(OnVocalModeChanged);
             }
 
-            for (int i = 0; i < VocalSlotCount; i++)
-            {
-                // Solo 用 0 号（和模式下拉同一行）；Mix 时 1..6 号在下面两行铺开，
-                // 每个 130 宽，够放「大和赤骥」这类四字名
-                Vector2 slotPos;
+            // 只有 Solo 需要选音轨；Mix 交给生成器自己的默认分配
+            _vocalSlotDropdowns[0] = CreateDropdown(root, new Vector2(100f, -178f), new Vector2(130f, 32f));
 
-                if (i == 0)
-                    slotPos = new Vector2(100f, -178f);
-                else
-                {
-                    int row = (i - 1) / 4;
-                    int col = (i - 1) % 4;
-                    slotPos = new Vector2(-300f + col * 140f, -222f - row * 40f);
-                }
-
-                _vocalSlotDropdowns[i] = CreateDropdown(
-                    root,
-                    slotPos,
-                    new Vector2(i == 0 ? 130f : 130f, 32f));
-
-                if (_vocalSlotDropdowns[i] != null)
-                {
-                    int slot = i;
-                    _vocalSlotDropdowns[i].onValueChanged.AddListener(index => OnVocalSlotChanged(slot, index));
-                }
-            }
+            if (_vocalSlotDropdowns[0] != null)
+                _vocalSlotDropdowns[0].onValueChanged.AddListener(index => OnVocalSlotChanged(0, index));
         }
 
         Debug.Log($"[LiveAudio] 面板 root={root.name} size={root.rect.size} pos={root.anchoredPosition} "
@@ -104,23 +83,15 @@ public partial class UmaViewerUI
                 + $"template={(tpl != null ? tpl.gameObject.activeSelf.ToString() : "<无>")}");
         }
 
-        FillVocalSlotDropdown(0);
-
-        // Solo concert 只有一个演唱位，多余的槽位直接收起来，不占地方也不误导。
+        // Solo 才显示这个槽位；Mix 用生成器默认，整块收起
         bool solo = _vocalModeDropdown == null || _vocalModeDropdown.value == 0;
 
-        for (int i = 1; i < VocalSlotCount; i++)
+        if (_vocalSlotDropdowns[0] != null)
         {
-            if (_vocalSlotDropdowns[i] == null)
-                continue;
+            _vocalSlotDropdowns[0].gameObject.SetActive(solo);
 
-            _vocalSlotDropdowns[i].gameObject.SetActive(!solo);
-        }
-
-        if (!solo)
-        {
-            for (int i = 1; i < VocalSlotCount; i++)
-                FillVocalSlotDropdown(i);
+            if (solo)
+                FillVocalSlotDropdown(0);
         }
     }
 
@@ -252,44 +223,24 @@ public partial class UmaViewerUI
     {
         bool solo = mode == 0;
 
-        for (int i = 1; i < VocalSlotCount; i++)
+        if (_vocalSlotDropdowns[0] != null)
         {
-            // 首次建面板时若是 Solo，这些下拉压根没造出来，这里补上再显示
-            if (_vocalSlotDropdowns[i] == null && !solo)
-                BuildVocalSlotDropdown(i);
+            _vocalSlotDropdowns[0].gameObject.SetActive(solo);
 
-            if (_vocalSlotDropdowns[i] == null)
-                continue;
-
-            _vocalSlotDropdowns[i].gameObject.SetActive(!solo);
-
-            if (!solo)
-                FillVocalSlotDropdown(i);
+            if (solo)
+                FillVocalSlotDropdown(0);
         }
-    }
 
-    private void BuildVocalSlotDropdown(int i)
-    {
-        if (LiveSelectInfoText == null)
-            return;
-
-        RectTransform root = LiveSelectInfoText.transform as RectTransform;
-
-        if (root == null)
-            return;
-
-        int row = (i - 1) / 4;
-        int col = (i - 1) % 4;
-
-        _vocalSlotDropdowns[i] = CreateDropdown(
-            root,
-            new Vector2(-300f + col * 140f, -222f - row * 40f),
-            new Vector2(130f, 32f));
-
-        if (_vocalSlotDropdowns[i] != null)
+        // 切回 Mix 就把所有覆盖清掉，完全交回生成器的默认分配
+        if (!solo)
         {
-            int slot = i;
-            _vocalSlotDropdowns[i].onValueChanged.AddListener(index => OnVocalSlotChanged(slot, index));
+            Gallop.Live.Director director = Gallop.Live.Director.instance;
+
+            if (director != null && director.VocalCharaIds != null)
+            {
+                for (int i = 0; i < director.VocalCharaIds.Length; i++)
+                    director.VocalCharaIds[i] = -1;
+            }
         }
     }
 
