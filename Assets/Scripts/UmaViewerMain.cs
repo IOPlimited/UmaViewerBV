@@ -113,6 +113,9 @@ public class UmaViewerMain : MonoBehaviour
 
     private IEnumerator Start()
     {
+        // 运行时创建的控件（Live 槽位按钮、Members Count 之类）要靠它把英文换成中文表里的值
+        UiLocalization.Apply(Config.Instance != null ? Config.Instance.Language : Language.En);
+
         if (Config.Instance.WorkMode == WorkMode.Standalone && UmaStandalone.IsSupportedPlatform)
         {
             bool ready = false;

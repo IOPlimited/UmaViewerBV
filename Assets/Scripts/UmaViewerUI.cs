@@ -895,7 +895,8 @@ public partial class UmaViewerUI : MonoBehaviour
         int memberCount = selectableSlots.Length;
         var recommendedRows = LiveFormationLoader.ReadRecommendedRows(entry.MusicId, out _);
         _recommendedLiveToggle.interactable = recommendedRows.Count != 0;
-        LiveSelectInfoText.text = $"{entry.SongName}\nMembers Count: {memberCount}";
+        LiveSelectInfoText.text =
+            $"{entry.SongName}\n{UiLocalization.T("Members Count:")} {memberCount}";
 
         var selections = new List<LiveCharacterSelect>(LiveSelectList.content.GetComponentsInChildren<LiveCharacterSelect>());
         for (int i = selections.Count - 1; i >= memberCount; i--)
@@ -928,6 +929,130 @@ public partial class UmaViewerUI : MonoBehaviour
             ShowMessage("Cannot fill the live selection: no available character-owned winning costume matches an empty slot.", UIMessageType.Warning);
         ApplyRecommendedLiveSelections(entry, selections);
         ShowFixedLiveSelections(entry, selections, keepSelections);
+
+        EnsureLiveSlotActions();
+    }
+
+    //==========================================================================
+    // Live 槽位快捷动作：复制一号位 / 随机服装
+    //
+    // src 分支的 Version2.unity 没有这两个按钮的节点（master 的场景比它多 8 万行，
+    // fileID 又全是局部唯一的，没法整块搬），所以按 UmaViewerUI.LiveRender 的方式
+    // 运行时建控件，文案走 UiLocalization 的表。
+    //==========================================================================
+
+    private bool _liveSlotActionsBuilt;
+
+    private void EnsureLiveSlotActions()
+    {
+        if (_liveSlotActionsBuilt)
+            return;
+
+        Transform parent = LiveSelectInfoText != null
+            ? LiveSelectInfoText.transform.parent
+            : null;
+
+        if (parent == null || !(parent is RectTransform))
+            return;
+
+        _liveSlotActionsBuilt = true;
+
+        RectTransform rect = (RectTransform)parent;
+
+        Button(UiLocalization.T("Copy slot 1"), rect, new Vector2(-300f, -232f), CopySlot1ToRest);
+        Button(UiLocalization.T("Randomize costume 1"), rect, new Vector2(-40f, -232f), RandomizeCostumes);
+    }
+
+    /// <summary>槽位 1 为空时找任意一个已填好的槽位当源；都空就返回 null。</summary>
+    private LiveCharacterSelect EnsureSlot1Filled(LiveCharacterSelect first)
+    {
+        if (first != null && first.CharaEntry != null && !string.IsNullOrEmpty(first.CostumeId))
+            return first;
+
+        if (LiveSelectList == null || LiveSelectList.content == null)
+            return null;
+
+        LiveCharacterSelect[] slots =
+            LiveSelectList.content.GetComponentsInChildren<LiveCharacterSelect>();
+
+        for (int i = 0; i < slots.Length; i++)
+        {
+            if (slots[i] != null && slots[i].CharaEntry != null && !string.IsNullOrEmpty(slots[i].CostumeId))
+                return slots[i];
+        }
+
+        return null;
+    }
+
+    /// <summary>把源槽位的角色与服装复制到其余全部槽位。</summary>
+    private void CopySlot1ToRest()
+    {
+        if (LiveSelectList == null || LiveSelectList.content == null)
+            return;
+
+        LiveCharacterSelect[] slots =
+            LiveSelectList.content.GetComponentsInChildren<LiveCharacterSelect>();
+
+        if (slots.Length < 2)
+            return;
+
+        LiveCharacterSelect source = EnsureSlot1Filled(slots[0]);
+
+        if (source == null || source.CharaEntry == null)
+        {
+            ShowMessage("No character data available.", UIMessageType.Warning);
+            return;
+        }
+
+        for (int i = 1; i < slots.Length; i++)
+        {
+            slots[i].SetValue(
+                source.CharaEntry,
+                source.CostumeId,
+                source.CostumeImage != null ? source.CostumeImage.sprite : null,
+                source.HeadCostumeId,
+                source.MasterDressId);
+        }
+    }
+
+    /// <summary>给其余每个槽位随机取一套源角色的服装。</summary>
+    private void RandomizeCostumes()
+    {
+        if (LiveSelectList == null || LiveSelectList.content == null)
+            return;
+
+        LiveCharacterSelect[] slots =
+            LiveSelectList.content.GetComponentsInChildren<LiveCharacterSelect>();
+
+        if (slots.Length < 2)
+            return;
+
+        LiveCharacterSelect source = EnsureSlot1Filled(slots[0]);
+
+        if (source == null || source.CharaEntry == null)
+            return;
+
+        List<CostumeEntry> pool = Main != null && Main.Costumes != null
+            ? Main.Costumes.FindAll(c => c != null && c.CharaId == source.CharaEntry.Id)
+            : null;
+
+        if (pool == null || pool.Count == 0)
+        {
+            ShowMessage("No valid costumes found for this character.", UIMessageType.Warning);
+            return;
+        }
+
+        for (int i = 1; i < slots.Length; i++)
+        {
+            CostumeEntry pick = pool[UnityEngine.Random.Range(0, pool.Count)];
+
+            slots[i].SetValue(
+                source.CharaEntry,
+                pick.Id,
+                pick.Icon != null ? pick.Icon : source.CostumeImage?.sprite,
+                source.HeadCostumeId,
+                pick.MasterDressId);
+        }
     }
 
     void ListCostumes(CharaEntry chara, bool mini)
