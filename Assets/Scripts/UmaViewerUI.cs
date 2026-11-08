@@ -962,8 +962,8 @@ public partial class UmaViewerUI : MonoBehaviour
 
         RectTransform rect = (RectTransform)parent;
 
-        LiveRenderUI.Button(UiLocalization.T("Copy slot 1"), rect, new Vector2(-120f, -120f), CopySlot1ToRest);
-        LiveRenderUI.Button(UiLocalization.T("Randomize costume 1"), rect, new Vector2(140f, -120f), RandomizeCostumes);
+        LiveRenderUI.Button(UiLocalization.T("Copy slot 1"), rect, new Vector2(-120f, -386f), CopySlot1ToRest);
+        LiveRenderUI.Button(UiLocalization.T("Randomize costume 1"), rect, new Vector2(140f, -386f), RandomizeCostumes);
     }
 
     /// <summary>槽位 1 为空时找任意一个已填好的槽位当源；都空就返回 null。</summary>

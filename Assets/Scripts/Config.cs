@@ -30,6 +30,9 @@ public class Config
     public string AudioKeyTip = "Hexadecimal key to read game audio files (up to 16 hex digits, without 0x prefix)";
     public string AudioKeyText = DefaultAudioKeyText;
 
+    public string FfmpegPathTip = "Optional: full path to ffmpeg.exe (or the folder containing it) used to encode Live recordings to MP4. Leave empty to look next to the executable and in the PATH.";
+    public string FfmpegPath = "";
+
     public string LanguageTip = "Affects Uma names on the list. Language options: 0 - En, 1 - Jp, 2 - Simplified Chinese";
     public Language Language = Language.En;
 

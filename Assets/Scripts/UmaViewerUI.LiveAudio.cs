@@ -42,9 +42,9 @@ public partial class UmaViewerUI
         {
             _vocalLabelsBuilt = true;
 
-            LiveRenderUI.Text("语音选择：", root, new Vector2(-300f, -178f), new Vector2(150f, 32f), 21);
+            LiveRenderUI.Text("语音选择：", root, new Vector2(-300f, -6f), new Vector2(150f, 32f), 21);
 
-            _vocalModeDropdown = CreateDropdown(root, new Vector2(-140f, -178f), new Vector2(200f, 34f));
+            _vocalModeDropdown = CreateDropdown(root, new Vector2(-110f, -6f), new Vector2(190f, 34f));
 
             if (_vocalModeDropdown != null)
             {
@@ -59,7 +59,7 @@ public partial class UmaViewerUI
             }
 
             // 只有 Solo 需要选音轨；Mix 交给生成器自己的默认分配
-            _vocalSlotDropdowns[0] = CreateDropdown(root, new Vector2(100f, -178f), new Vector2(130f, 32f));
+            _vocalSlotDropdowns[0] = CreateDropdown(root, new Vector2(90f, -6f), new Vector2(150f, 34f));
 
             if (_vocalSlotDropdowns[0] != null)
                 _vocalSlotDropdowns[0].onValueChanged.AddListener(index => OnVocalSlotChanged(0, index));

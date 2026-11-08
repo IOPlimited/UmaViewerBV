@@ -76,14 +76,42 @@ public sealed class LiveRenderSettings
 
     public static string FindFfmpeg()
     {
+        // Config.json 里的 FfmpegPath 一直没被读取过，配了也白配；先认它
+        // 值可以是 ffmpeg.exe 本身，也可以直接填安装目录
+        string configured = Config.Instance != null ? Config.Instance.FfmpegPath : null;
+
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            string trimmed = configured.Trim().Trim('"');
+
+            if (File.Exists(trimmed))
+                return trimmed;
+
+            foreach (string name in new[] { "ffmpeg.exe", "ffmpeg.cmd", "ffmpeg.bat" })
+            {
+                string inside = Path.Combine(trimmed, name);
+
+                if (File.Exists(inside))
+                    return inside;
+            }
+        }
+
         var root=Path.GetFullPath(Path.Combine(Application.dataPath,".."));
         var candidates=new[]{Path.Combine(root,"ffmpeg.exe"),Path.Combine(root,"bin/ffmpeg.exe"),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"ffmpeg/bin/ffmpeg.exe")};
         foreach(var path in candidates)if(File.Exists(path))return path;
         foreach(string directory in (Environment.GetEnvironmentVariable("PATH")??"").Split(Path.PathSeparator))
         {
             if(string.IsNullOrWhiteSpace(directory))continue;
-            string path=Path.Combine(directory.Trim('"'),"ffmpeg.exe");
-            if(File.Exists(path))return path;
+
+            // 包管理器常在 PATH 里放 bat/cmd 垫片，只认 .exe 会漏
+            string clean=directory.Trim().Trim('"');
+
+            foreach(string name in new[]{"ffmpeg.exe","ffmpeg.cmd","ffmpeg.bat"})
+            {
+                string found=Path.Combine(clean,name);
+
+                if(File.Exists(found))return found;
+            }
         }
         throw new FileNotFoundException("FFmpeg was not found. Install FFmpeg or place ffmpeg.exe beside UmaViewer.exe.");
     }
