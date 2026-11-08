@@ -55,23 +55,56 @@ public sealed class LiveRenderSettings
     {
         if(ffmpegChecked)return;
         ffmpegChecked=true;
+
+        string executable;
+
         try
         {
-            string executable=FindFfmpeg();
+            executable=FindFfmpeg();
+        }
+        catch(Exception error)
+        {
+            Debug.LogWarning("[FFmpeg] 找不到可执行文件: "+error.Message);
+            return;
+        }
+
+        Debug.Log("[FFmpeg] 使用 "+executable+" 做检测");
+
+        try
+        {
             using(var process=new Process{StartInfo=new ProcessStartInfo(executable,"-version")
                 {UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true}})
             {
                 process.Start();
-                var output=process.StandardOutput.ReadToEndAsync();
-                var error=process.StandardError.ReadToEndAsync();
-                if(!process.WaitForExit(3000)){process.Kill();return;}
-                string version=output.GetAwaiter().GetResult();
-                error.GetAwaiter().GetResult();
-                ffmpegDetected=process.ExitCode==0&&version.StartsWith("ffmpeg version",StringComparison.OrdinalIgnoreCase);
-                if(ffmpegDetected)ffmpegExecutable=executable;
+
+                // 必须先同步读完输出再等退出：管道写满的话进程永远不退出，
+                // 原来的 WaitForExit(3000) 会一直超时并把检测结果钉在 false。
+                string version=process.StandardOutput.ReadToEnd();
+                process.StandardError.ReadToEnd();
+
+                if(!process.WaitForExit(8000))
+                {
+                    try{process.Kill();}catch{}
+
+                    Debug.LogWarning("[FFmpeg] -version 超时: "+executable);
+                    return;
+                }
+
+                ffmpegDetected=process.ExitCode==0
+                    &&version.IndexOf("ffmpeg",StringComparison.OrdinalIgnoreCase)>=0;
+
+                if(ffmpegDetected)
+                    ffmpegExecutable=executable;
+                else
+                    Debug.LogWarning("[FFmpeg] -version 结果异常 exit="+process.ExitCode+" output="
+                        +version.Substring(0,Math.Min(200,version.Length)));
             }
         }
-        catch(Exception){ffmpegDetected=false;}
+        catch(Exception error)
+        {
+            Debug.LogWarning("[FFmpeg] 启动失败: "+error.Message);
+            ffmpegDetected=false;
+        }
     }
 
     public static string FindFfmpeg()
