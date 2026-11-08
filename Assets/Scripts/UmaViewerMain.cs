@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
@@ -113,9 +113,6 @@ public class UmaViewerMain : MonoBehaviour
 
     private IEnumerator Start()
     {
-        // 运行时创建的控件（Live 槽位按钮、Members Count 之类）要靠它把英文换成中文表里的值
-        UiLocalization.Apply(Config.Instance != null ? Config.Instance.Language : Language.En);
-
         if (Config.Instance.WorkMode == WorkMode.Standalone && UmaStandalone.IsSupportedPlatform)
         {
             bool ready = false;
@@ -316,6 +313,17 @@ public class UmaViewerMain : MonoBehaviour
         Builder.ShaderList = new List<Shader>(shaders.LoadAllAssets<Shader>()); 
         Gallop.ShaderManager.InitManager();
         Gallop.ShaderManager.WarmupDofBloomShader();
+
+        // 中文表要扫全场景的 TMP 文本、给缺字的字体挂 fallback 字体，开销不小；
+        // 放在加载之前一旦失败会连带后面的数据加载一起中断（表现就是整页空白）。
+        try
+        {
+            UiLocalization.Apply(Config.Instance != null ? Config.Instance.Language : Language.En);
+        }
+        catch (Exception error)
+        {
+            Debug.LogWarning("[UiLocalization] Apply 失败，界面仍按原样显示: " + error);
+        }
     }
 
     private static bool TryParseEnglishNames(
