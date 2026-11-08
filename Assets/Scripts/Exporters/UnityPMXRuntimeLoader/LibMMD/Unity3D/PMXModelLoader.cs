@@ -1,4 +1,4 @@
-using LibMMD.Unity3D;
+﻿using LibMMD.Unity3D;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -44,7 +44,7 @@ public class PMXModelLoader
 #endif
 
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             UnityEngine.Debug.Log("アバターの作成に失敗しました");
             UnityEngine.Debug.Log(path);

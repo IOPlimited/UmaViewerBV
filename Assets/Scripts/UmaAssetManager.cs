@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -98,7 +98,6 @@ public class UmaAssetManager : MonoBehaviour
         {
             UmaDatabaseEntry root = roots[i];
             List<UmaDatabaseEntry> requests = SearchAB(UmaViewerMain.Instance, root);
-            int repeated = 0;
             int added = 0;
             for (int j = 0; j < requests.Count; j++)
             {
@@ -107,6 +106,12 @@ public class UmaAssetManager : MonoBehaviour
                     continue;
                 loadItems.Add(new LoadItem(request, false));
                 added++;
+            }
+
+            if (_diagActive)
+            {
+                // 重复请求数在去掉 CS0219 的 repeated 变量后不再统计，这里显式传 0。
+                Gallop.Live.LiveRuntimeDiagnostics.RecordPreloadRoot(i, root.Name, added, 0);
             }
         }
 

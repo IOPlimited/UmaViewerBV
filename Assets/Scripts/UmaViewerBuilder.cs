@@ -1,4 +1,4 @@
-using CriWareFormats;
+﻿using CriWareFormats;
 using Gallop;
 using Gallop.Live;
 using Gallop.Live.Cutt;
@@ -535,7 +535,7 @@ public class UmaViewerBuilder : MonoBehaviour
         string hair = UmaDatabaseController.HeadPath + $"chr{head_s}_{head_costumeId}/pfb_chr{head_s}_{head_costumeId}_hair{hairid.PadLeft(3, '0')}";
         Main.AbList.TryGetValue(head, out asset);
         Main.AbList.TryGetValue(hair, out UmaDatabaseEntry hairasset);
-        bool isDefaultHead = true;
+        // 之前的 isDefaultHead 只赋值不读取，构建时是 CS0219；删掉。
         if (asset != null && hairasset != null)
         {
             //Load Face And Hair Textures
