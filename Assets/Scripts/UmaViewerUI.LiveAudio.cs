@@ -236,6 +236,15 @@ public partial class UmaViewerUI
 
         director.VocalCharaIds[slot] = id;
 
+        // Solo 是一个人唱全部声部：0 号和 1 号轨都归这个歌手，否则副声部还是原角色
+        bool solo = _vocalModeDropdown == null || _vocalModeDropdown.value == 0;
+
+        if (slot == 0 && solo && director.VocalCharaIds.Length > 1)
+        {
+            director.VocalCharaIds[1] = id;
+            Debug.Log($"[LiveAudio] solo:轨道 0/1 都用歌手 {id}");
+        }
+
         Debug.Log($"[LiveAudio] slot {slot} -> singer {id}");
     }
 
@@ -245,6 +254,10 @@ public partial class UmaViewerUI
 
         for (int i = 1; i < VocalSlotCount; i++)
         {
+            // 首次建面板时若是 Solo，这些下拉压根没造出来，这里补上再显示
+            if (_vocalSlotDropdowns[i] == null && !solo)
+                BuildVocalSlotDropdown(i);
+
             if (_vocalSlotDropdowns[i] == null)
                 continue;
 
@@ -252,6 +265,31 @@ public partial class UmaViewerUI
 
             if (!solo)
                 FillVocalSlotDropdown(i);
+        }
+    }
+
+    private void BuildVocalSlotDropdown(int i)
+    {
+        if (LiveSelectInfoText == null)
+            return;
+
+        RectTransform root = LiveSelectInfoText.transform as RectTransform;
+
+        if (root == null)
+            return;
+
+        int row = (i - 1) / 4;
+        int col = (i - 1) % 4;
+
+        _vocalSlotDropdowns[i] = CreateDropdown(
+            root,
+            new Vector2(-300f + col * 140f, -222f - row * 40f),
+            new Vector2(130f, 32f));
+
+        if (_vocalSlotDropdowns[i] != null)
+        {
+            int slot = i;
+            _vocalSlotDropdowns[i].onValueChanged.AddListener(index => OnVocalSlotChanged(slot, index));
         }
     }
 
