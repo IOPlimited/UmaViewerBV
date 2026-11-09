@@ -8,6 +8,38 @@ public partial class UmaContainerCharacter
     LiveCharacterLightingRuntime _liveCharacterLighting;
     GameObject _lightingHead,_lightingHair,_lightingBody,_lightingTail;
     Vector3 _liveHeadBaseOffsets;
+    LiveCharacterLightingRuntime _previewHeadLighting;
+    Vector3 _previewHeadBaseOffsets;
+
+    void InitializePreviewHeadLighting()
+    {
+        if(IsLive||IsMini)return;
+        var holder=Head!=null?Head.GetComponent<AssetHolder>():null;
+        _previewHeadBaseOffsets=ReadLiveHeadLightingBaseOffsets(holder,Vector3.zero);
+        _previewHeadLighting=new LiveCharacterLightingRuntime();
+        bool hasHair=Renderers.Exists(renderer=>renderer!=null&&renderer.name=="M_Hair");
+        foreach(var renderer in Renderers)
+        {
+            foreach(var material in renderer.sharedMaterials)
+            {
+                if(material==null)continue;
+                var destination=LiveCharacterLightingRuntime.Classify(renderer.name,material,hasHair);
+                if(destination==LiveCharacterLightingRuntime.Destination.FaceSkin||
+                    destination==LiveCharacterLightingRuntime.Destination.Hair||
+                    destination==LiveCharacterLightingRuntime.Destination.Mayu)
+                    _previewHeadLighting.Bindings.Add(new LiveCharacterLightingRuntime.Binding {
+                        renderer=renderer,material=material,destination=destination });
+            }
+        }
+    }
+
+    void UpdatePreviewHeadLighting(Vector3 position,Vector3 up,Vector3 forward)
+    {
+        var offsets=_previewHeadBaseOffsets*BodyScale;
+        FaceCenterUpOffset=offsets.x;
+        FaceCenterForwardOffset=offsets.y;
+        _previewHeadLighting?.ApplyHeadGeometry(position,up,forward,offsets);
+    }
     public LiveCharacterLightingRuntime LiveCharacterLighting=>_liveCharacterLighting;
     public Vector3 LiveHeadLightingBaseOffsets=>_liveHeadBaseOffsets;
     public Vector3 LiveHeadLightingOffsets=>new Vector3(

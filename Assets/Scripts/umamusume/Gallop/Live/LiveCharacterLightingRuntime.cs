@@ -94,6 +94,18 @@ namespace Gallop.Live
         {
             ApplyCore(position,up,forward,headRotation,finalOffsets);
         }
+        public void ApplyHeadGeometry(Vector3 position,Vector3 up,Vector3 forward,Vector3 finalOffsets)
+        {
+            Vector3 hairCenter=Center(position,up,forward,finalOffsets.x,finalOffsets.y);
+            Vector3 faceCenter=TubeCenter(position,forward,finalOffsets.z);
+            foreach(var binding in Bindings)
+            {
+                var material=binding.material;
+                material.SetVector(Id(140),binding.destination==Destination.Hair?hairCenter:faceCenter);
+                material.SetVector(Id(141),up);
+                material.SetVector(Id(142),forward);
+            }
+        }
         void ApplyCore(Vector3 position,Vector3 up,Vector3 forward,Quaternion headRotation,Vector3 finalOffsets)
         {
             int faceMode=(int)Facial.UseOriginalDirectionalLight;

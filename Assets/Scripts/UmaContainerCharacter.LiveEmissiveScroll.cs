@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Gallop.Live;
 using UnityEngine;
 
@@ -56,6 +57,26 @@ public partial class UmaContainerCharacter
             component.Paused=LiveModelComponentsPaused;
             component.AfterLateUpdate(true,delta);
         }
+    }
+
+    bool _previewShaderEffectsInitialized;
+
+    void InitializePreviewShaderEffects()
+    {
+        if(IsLive||_previewShaderEffectsInitialized)return;
+        var materials=Renderers.SelectMany(renderer=>renderer.sharedMaterials)
+            .Where(material=>material!=null).Distinct().ToArray();
+        if(HeadShaderEffectData!=null)HeadShaderEffectData=HeadShaderEffectData.CreatePreviewInstance(materials);
+        if(BodyShaderEffectData!=null)BodyShaderEffectData=BodyShaderEffectData.CreatePreviewInstance(materials);
+        _previewShaderEffectsInitialized=true;
+    }
+
+    void ReleasePreviewShaderEffects()
+    {
+        if(!_previewShaderEffectsInitialized)return;
+        if(HeadShaderEffectData!=null)Destroy(HeadShaderEffectData);
+        if(BodyShaderEffectData!=null)Destroy(BodyShaderEffectData);
+        _previewShaderEffectsInitialized=false;
     }
 
     void UpdatePreviewShaderEffects(float delta)
