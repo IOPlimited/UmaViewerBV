@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Gallop
@@ -48,6 +49,34 @@ namespace Gallop
         public void Initialize()
         {
             //Something TBD?
+        }
+
+        public CharaShaderEffectData CreatePreviewInstance(IReadOnlyList<Material> materials)
+        {
+            var instance = Instantiate(this);
+            instance.name = name;
+            instance.magicClock = 0;
+            var settings = new List<SettingData>();
+            foreach (var source in _settingDataArray)
+            {
+                if (!source.TargetMaterial)
+                    continue;
+                string targetName = source.TargetMaterial.name.Replace(" (Instance)", "");
+                foreach (var material in materials)
+                {
+                    if (material.name.Replace(" (Instance)", "") != targetName)
+                        continue;
+                    settings.Add(new SettingData
+                    {
+                        Type = source.Type,
+                        TargetMaterial = material,
+                        ParamArray = source.ParamArray,
+                        ParamCurveArray = source.ParamCurveArray
+                    });
+                }
+            }
+            instance._settingDataArray = settings.ToArray();
+            return instance;
         }
 
 

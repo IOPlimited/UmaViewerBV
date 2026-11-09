@@ -93,8 +93,7 @@ public partial class UmaContainerCharacter : UmaContainer
     [Header("ModelController FaceLight鼻部阴影")]
     public Transform HeadToonBaseTransform;
     public Renderer FaceRenderer;
-    // 这两个先保留你测试时效果好的值。
-    // 后面如果继续逆 asset holder，再换成官方 asset 里的值。
+    // Initialized from the head AssetHolder after the model's height scale is applied.
     public float FaceCenterUpOffset = 0.03f;
     public float FaceCenterForwardOffset = 0.03f;
     public bool FlipFaceForward = false;
@@ -204,6 +203,7 @@ public partial class UmaContainerCharacter : UmaContainer
 
     private void OnDestroy()
     {
+        ReleasePreviewShaderEffects();
         ReleaseLiveAnimation();
         LiveEyeHighlight?.Dispose();
         LiveRandomEar?.Dispose();
@@ -298,6 +298,7 @@ public partial class UmaContainerCharacter : UmaContainer
             FaceDrivenKeyTarget.ChangeMorphWeight(FaceDrivenKeyTarget.MouthMorphs[3], 1);
         CreateIK();
         SetShaderParameterRuntime();
+        InitializePreviewShaderEffects();
     }
 
     public void MergeModel()
@@ -805,6 +806,7 @@ public partial class UmaContainerCharacter : UmaContainer
     public void SetShaderParameterRuntime()
     {
         InitFaceLightRuntime();
+        InitializePreviewHeadLighting();
         UpdateFaceLightRuntime();
     // 官方这里后面还会做：
     // EyeHighlightController.DefaultEyeMaterial()
@@ -946,12 +948,17 @@ public partial class UmaContainerCharacter : UmaContainer
             string shaderName = mat.shader.name;
             if (!shaderName.Contains("ToonFace") && !matName.Contains("face"))
                 continue;
-            mat.SetVector(ID_FaceCenterPos, faceCenter);
-            mat.SetVector(ID_FaceUp, up);
-            mat.SetVector(ID_FaceForward, forward);
+            if (IsLive)
+            {
+                mat.SetVector(ID_FaceCenterPos, faceCenter);
+                mat.SetVector(ID_FaceUp, up);
+                mat.SetVector(ID_FaceForward, forward);
+            }
             mat.SetMatrix(ID_FaceShadowHeadMat, headMat);
         }
 
+        if (!IsLive)
+            UpdatePreviewHeadLighting(pos, up, forward);
         UpdateLiveFacialToonMaterialRuntime();
     }
 
