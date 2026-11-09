@@ -51,8 +51,9 @@ public class UmaViewerDownload : MonoBehaviour
                 "https://umamusume.cn-sy1.rains3.com/dat/";
 
 #if UNITY_ANDROID
+            // Android 的 bundle 与 Windows 内容不同（hash 也不同），单独一套目录
             ASSET_BASE_URL =
-                "https://prd-storage-game-umamusume.akamaized.net/dl/resources/Android/assetbundles/";
+                "https://umamusume.cn-sy1.rains3.com/android/dat/";
 #else
             ASSET_BASE_URL =
                 "https://umamusume.cn-sy1.rains3.com/dat/";

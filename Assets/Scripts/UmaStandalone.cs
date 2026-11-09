@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -6,7 +6,8 @@ using System.IO;
 public static class UmaStandalone
 {
     public static bool IsSupportedPlatform => UnityEngine.Application.platform == UnityEngine.RuntimePlatform.WindowsPlayer
-        || UnityEngine.Application.platform == UnityEngine.RuntimePlatform.WindowsEditor;
+        || UnityEngine.Application.platform == UnityEngine.RuntimePlatform.WindowsEditor
+        || UnityEngine.Application.platform == UnityEngine.RuntimePlatform.Android;
 
     public static IEnumerator Initialize(Action<string, UIMessageType> progress, Action<bool> completed)
         => Run(InitializeCore(progress, completed), progress, completed);

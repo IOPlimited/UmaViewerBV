@@ -7,7 +7,12 @@ using Mono.Data.Sqlite;
 
 public static class UmaKeySync
 {
+    // Windows 与 Android 的 bundle 内容不同，hash 也不同，key 表必须分开
+#if UNITY_ANDROID
+    public static string Url = "https://umapi.buenavista.fans:8443/keys-android.txt";
+#else
     public static string Url = "https://umapi.buenavista.fans:8443/keys.txt";
+#endif
 
     public static bool NeedsSync(string dbPath)
     {

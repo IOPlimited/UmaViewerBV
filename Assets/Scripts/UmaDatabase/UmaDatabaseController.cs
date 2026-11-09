@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Mono.Data.Sqlite;
 using System.Data;
@@ -148,19 +148,8 @@ public partial class UmaDatabaseController
                 dbKey = Config.Instance.GlobalDBKey;
             }
 
-#if UNITY_ANDROID || UNITY_IOS || UNITY_IPHONE
-            EnsureMobileDatabaseFiles();
-
-            var mobileMetaPath = Path.Combine(Config.Instance.MainPath, "meta");
-            var mobileMasterPath = Path.Combine(Config.Instance.MainPath, "master", "master.mdb");
-
-            if (!File.Exists(mobileMetaPath)) throw new FileNotFoundException("Mobile meta database not found", mobileMetaPath);
-            if (!File.Exists(mobileMasterPath)) throw new FileNotFoundException("Mobile master database not found", mobileMasterPath);
-
-            var encryptedDbKey = GenFinalKey((byte[])dbKey.Clone());
-            MetaEntries = ReadMetaFromEncryptedDb(mobileMetaPath, encryptedDbKey, 3);
-            masterDb = new SqliteConnection($@"Data Source={mobileMasterPath};");
-#else
+            // 移动端也走同一套选择逻辑：重建出来的 meta_umaviewer 是明文库，
+            // 原先那条"复制打包内置库"的分支早已没有资源可复制（Resources/Database/meta 不存在）。
             if (!TrySelectDatabasePaths(Config.Instance.MainPath, Config.Instance.WorkMode, out var metaPath, out var masterPath))
                 throw new FileNotFoundException("A complete meta/master database pair was not found.");
             LoadedMetaPath = metaPath;
@@ -187,7 +176,6 @@ public partial class UmaDatabaseController
                     throw;
                 }
             }
-#endif
 
 
             masterDb.Open();

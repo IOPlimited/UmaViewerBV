@@ -1,4 +1,4 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -186,13 +186,17 @@ public class Config
         Version = Application.version;
 
         MainPath = $@"{Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "Low"}\Cygames\umamusume";
-        if (Application.isMobilePlatform)
+        // 移动端先给一套可用的默认值，然后照常读 Config.json：
+        // 以前这里直接 return，导致 CdnMode / 语言等设置永远停留在默认值。
+        bool mobileDefaults = Application.isMobilePlatform;
+        if (mobileDefaults)
         {
             WorkMode = WorkMode.Standalone;
             DownloadMissingResources = true;
             MainPath = Application.persistentDataPath;
-            Instance = this;
-            return;
+
+            // 首次启动写出的默认配置直接用国内 CDN，否则安卓端会去连官方 akamai
+            CdnMode = "CN";
         }
 
         if (!File.Exists(configPath))
@@ -259,6 +263,13 @@ public class Config
                 MainPath = $@"{Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "Low"}\Cygames\umamusume";
             }
         }
+        if (mobileDefaults)
+        {
+            // 配置里可能存着 Windows 的路径和 WorkMode，移动端必须覆盖回来
+            WorkMode = WorkMode.Standalone;
+            MainPath = Application.persistentDataPath;
+        }
+
         Instance = this;
     }
 
