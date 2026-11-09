@@ -233,6 +233,11 @@ public partial class UmaContainerCharacter
             return;
         }
 
+        // Shorts and bloomers have skirt parameter assets with no skirt bones.
+        // Match the Live loader: only create/link a skirt for authored skirt bones.
+        if (skirtParam._skirtBone == null || skirtParam._skirtBone.Count == 0)
+            return;
+
         _skirtController = GetComponent<SkirtController>();
         if (_skirtController == null)
             _skirtController = gameObject.AddComponent<SkirtController>();
@@ -425,8 +430,11 @@ public partial class UmaContainerCharacter
             if (container == null)
                 continue;
 
-            // Collision-only fallback data is not a spring slot.
-            if (container.springParam == null || container.springParam.Count == 0)
+            // The viewer's extra collision fallback is not an authored part.
+            // Authored cloth can have zero springs (towel) and still supplies
+            // body collisions and the empty body slot used by skirt linking.
+            if (container.gameObject == PhysicsContainer &&
+                (container.springParam == null || container.springParam.Count == 0))
                 continue;
 
             int kind = GuessCySpringContainerKind(container);
