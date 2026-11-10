@@ -86,6 +86,10 @@ jobs:
           buildsPath: build
           # Only the file name belongs here; its contents come from the env above.
           androidKeystoreName: uma-release.keystore
+          # Unity strips the native plugins under Assets/Plugins/Android/libs during the
+          # Android build, which leaves the worktree dirty and makes game-ci refuse to run
+          # ("Branch is dirty. Refusing to base semantic version on uncommitted changes").
+          allowDirtyBuild: true
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
