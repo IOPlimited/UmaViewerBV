@@ -122,8 +122,10 @@ public class UmaViewerGlobalShader : MonoBehaviour
 
         Shader.SetGlobalColor("_AmbientColor", _AmbientColor);
         #if UNITY_ANDROID
+        // Use projection depth for geometry, shadows and depth-based post effects.
+        // Keep the divisor finite: GLES shaders evaluate the log term before blending.
         Shader.SetGlobalFloat("_GlobalFarClipLog", 1f);
-        Shader.SetGlobalFloat("_GlobalVertexDepthLinear", 1f);
+        Shader.SetGlobalFloat("_GlobalVertexDepthLinear", 0f);
         #endif
     }
 

@@ -4,7 +4,9 @@
 #include <cstdint>
 #include <cstring>
 #include <cmath>
+#if defined(_WIN32)
 #include <xmmintrin.h>
+#endif
 #include "batch_job.h"
 static_assert(sizeof(void*)==8 && sizeof(float)==4,"UmaSpringNative requires the 64-bit float32 ABI");
 using longlong=std::intptr_t;
@@ -16,10 +18,15 @@ static int IntAt(const float* p,int index){int v;std::memcpy(&v,p+index,4);retur
 static uint Bits(float x){uint u;std::memcpy(&u,&x,4);return u;}
 static uint Bits(uint x){return x;}
 static ulonglong CONCAT44(float hi,float lo){return (ulonglong(Bits(hi))<<32)|Bits(lo);}
+#if defined(_WIN32)
 static float Root(float x){return _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(x)));}
+#else
+static float Root(float x){return std::sqrt(x);}
+#endif
 static float SQRT(float x){return Root(x);}
 static float ABS(float x){return std::fabs(x);}
 // Windows system math avoids MinGW's x87 trigonometry helpers.
+#if defined(_WIN32)
 extern "C" {
  extern double (__cdecl* __imp_sin)(double);
  extern double (__cdecl* __imp_cos)(double);
@@ -34,12 +41,25 @@ static double RefMod(double x,double y){return __imp_fmod(x,y);}
 static double RefAcos(double x){return __imp_acos(x);}
 static double RefAsin(double x){return __imp_asin(x);}
 static double RefAtan2(double y,double x){return __imp_atan2(y,x);}
+#else
+static double RefSin(double x,double=0){return std::sin(x);}
+static double RefCos(double x,double=0){return std::cos(x);}
+static double RefMod(double x,double y){return std::fmod(x,y);}
+static double RefAcos(double x){return std::acos(x);}
+static double RefAsin(double x){return std::asin(x);}
+static double RefAtan2(double y,double x){return std::atan2(y,x);}
+#endif
 // COMISS/JA followed by MINSS: unordered angles propagate, rather than
 // selecting a finite bound as a conventional C++ clamp would do.
 static float ClampAngle(float value,float minimum,float maximum){
  const float low=-minimum;
  if(low>value)return low;
+#if defined(_WIN32)
  return _mm_cvtss_f32(_mm_min_ss(_mm_set_ss(maximum),_mm_set_ss(value)));
+#else
+ // MINSS selects its second operand for equal or unordered inputs.
+ return maximum<value?maximum:value;
+#endif
 }
 static float* QuaternionToEuler(float* result,const float* q);
 static void EvaluateSkirt(float* work,const float* args);
@@ -1101,7 +1121,11 @@ static void SolveClothSkirt(float *param_1,int param_2,longlong param_3,float *p
   return;
 }
 
+#if defined(_WIN32)
 #define API extern "C" __declspec(dllexport)
+#else
+#define API extern "C" __attribute__((visibility("default")))
+#endif
 API void NativeClothUpdate(float* cloth,int count,void* collisions,void* parents,float stiffness,float drag,float gravity,float windX,float windY,float windZ,float windStrength,bool collision,float timescale,bool fps60,float move,float addMove,float spring){
  SolveCloth(cloth,count,(longlong)collisions,(longlong)parents,stiffness,drag,gravity,windX,windY,windZ,windStrength,char(collision),timescale,char(fps60),move,addMove,spring);
 }
@@ -1132,7 +1156,7 @@ API void UmaSpringIntegrateBone(float* c,void* col,void* par,float s,float d,flo
 
 
 
-#ifdef UMA_SPRING_TESTING
+#if defined(UMA_SPRING_TESTING) && defined(_WIN32)
 API unsigned UmaSpringGetMxcsr(){return _mm_getcsr();}
 API void UmaSpringSetMxcsr(unsigned value){_mm_setcsr(value);}
 #endif
