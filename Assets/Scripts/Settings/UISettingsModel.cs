@@ -1,4 +1,4 @@
-#if UNITY_STANDALONE || UNITY_EDITOR
+﻿#if UNITY_STANDALONE || UNITY_EDITOR
 using SFB;
 #endif
 
@@ -29,12 +29,8 @@ public class UISettingsModel : MonoBehaviour
 
     private void Awake()
     {
-        if (UnifiedExportPanel.FeatureEnabled) return;
-        foreach (var button in GetComponentsInChildren<Button>(true))
-            for (int i = 0; i < button.onClick.GetPersistentEventCount(); i++)
-                if (button.onClick.GetPersistentTarget(i) == this &&
-                    button.onClick.GetPersistentMethodName(i) == nameof(ExportModel))
-                    button.gameObject.SetActive(false);
+        // 主分支的 Export Model 按钮直接绑定 ExportModel()，这里不再给它加开关。
+        // 早期为了推 UnifiedExportPanel 会把按钮 SetActive(false)，导致功能"消失"。
     }
 
     public bool IsHeadFix
@@ -109,7 +105,6 @@ public class UISettingsModel : MonoBehaviour
 
     public void ExportModel()
     {
-        if (!UnifiedExportPanel.FeatureEnabled) return;
 #if UNITY_STANDALONE || UNITY_EDITOR
         var container = Builder.CurrentUMAContainer;
         if (container)
