@@ -59,6 +59,9 @@ jobs:
           restore-keys: |
             Library-Android-
 
+      - name: Build Android ARM64 CySpring kernel
+        run: python3 Native/UmaSpringNative/build_android.py
+
       - name: Build Android APK
         uses: game-ci/unity-builder@v4
         env:

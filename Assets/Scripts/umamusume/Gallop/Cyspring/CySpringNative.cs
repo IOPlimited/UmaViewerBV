@@ -11,15 +11,8 @@ namespace Gallop
 #else
         private const string DLL_NAME = "UmaSpringNative";
 #endif
-#if UNITY_ANDROID && !UNITY_EDITOR
-        // Android 侧没有独立的 CySpring 原生库：游戏自己的实现静态链接进 libil2cpp.so，
-        // libcyspringandroid.so 只是 14 KB 的 JNI 转发壳（不含 NativeCloth* 符号）。
-        // 保持 isNative = true 会让每次物理更新都抛 DllNotFoundException，裙摆/头发/胸部
-        // 完全不动。这里退回托管实现，物理恢复，代价是 CPU 略高。
-        public static bool isNative = false;
-#else
+        // Windows uses UmaSpringNative.dll; Android ARM64 uses libUmaSpringNative.so.
         public static bool isNative = true;
-#endif
         private static long _successfulCalls;
         public static long SuccessfulCalls => System.Threading.Interlocked.Read(ref _successfulCalls);
 
@@ -57,9 +50,9 @@ namespace Gallop
         }
 
         [DllImport(DLL_NAME, EntryPoint = "NativeClothUpdate", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void NativeClothUpdate(IntPtr cond, int nCond, IntPtr collisions, IntPtr pRootParentWork, float stiffnessForceRate, float dragForceRate, float gravityRate, float windX, float windY, float windZ, float windStrength, bool bCollisionSwitch, float timescale, bool is60FPS, float moveRate, float addMoveRate, float springRate);
+        private static extern void NativeClothUpdate(IntPtr cond, int nCond, IntPtr collisions, IntPtr pRootParentWork, float stiffnessForceRate, float dragForceRate, float gravityRate, float windX, float windY, float windZ, float windStrength, [MarshalAs(UnmanagedType.I1)] bool bCollisionSwitch, float timescale, [MarshalAs(UnmanagedType.I1)] bool is60FPS, float moveRate, float addMoveRate, float springRate);
         [DllImport(DLL_NAME, EntryPoint = "NativeClothSkirtUpdate", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void NativeClothSkirtUpdate(IntPtr cond, int nCond, IntPtr collisions, IntPtr pWorking, ref NativeSkirtArg pArg, IntPtr pRootParentWork, float stiffnessForceRate, float dragForceRate, float gravityRate, float windX, float windY, float windZ, float windStrength, bool bCollisionSwitch, float timescale, bool is60FPS, float moveRate, float addMoveRate, float springRate);
+        private static extern void NativeClothSkirtUpdate(IntPtr cond, int nCond, IntPtr collisions, IntPtr pWorking, ref NativeSkirtArg pArg, IntPtr pRootParentWork, float stiffnessForceRate, float dragForceRate, float gravityRate, float windX, float windY, float windZ, float windStrength, [MarshalAs(UnmanagedType.I1)] bool bCollisionSwitch, float timescale, [MarshalAs(UnmanagedType.I1)] bool is60FPS, float moveRate, float addMoveRate, float springRate);
         [DllImport(DLL_NAME, EntryPoint = "NativeSkirtUpdate", CallingConvention = CallingConvention.Cdecl)]
         private static extern void NativeSkirtUpdate(IntPtr pWorking, ref NativeSkirtArg pArg);
         public static void UpdateNativeCloth(NativeClothWorking[] clothWorkingArray, int clothWorkingCount, NativeClothCollision[] collisionArray, int linkSkirtIndex, SkirtController skirtCtrl, NativeRootParentWork[] nativeRootParentArray, float stiffnessForceRate, float dragForceRate, float gravityRate, float windX, float windY, float windZ, float windStrength, bool bCollisionSwitch, float timescale = 1.0f, bool is60FPS = false, float moveRate = 1.0f, float addMoveRate = 1.0f, float springRate = 1.0f)
