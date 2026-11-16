@@ -332,20 +332,22 @@ namespace Gallop.Live
             Right.SetScale(scale);
         }
 
-        public static LiveEyeTraceController Create(UmaContainerCharacter character)
+        // Read the authored binding without creating a target object or changing the actor.
+        public static bool TryCreateEyes(UmaContainerCharacter character, out Eye leftEye, out Eye rightEye)
         {
+            leftEye = rightEye = null;
             var holder = character.Head != null ? character.Head.GetComponent<AssetHolder>() : null;
             if (holder == null)
-                return null;
+                return false;
             var available = character.FaceDrivenKeyTarget;
             if (available == null || available.LeftEyeXrange == null || available.RightEyeXrange == null || available.LeftEyeYrange == null || available.RightEyeYrange == null)
-                return null;
+                return false;
             var left = holder.Get<GameObject>("eye_l")?.transform;
             var right = holder.Get<GameObject>("eye_r")?.transform;
             var ll = holder.Get<GameObject>("eye_locator_l")?.transform;
             var rl = holder.Get<GameObject>("eye_locator_r")?.transform;
             if (left == null || right == null || ll == null || rl == null)
-                return null;
+                return false;
             var face = character.FaceDrivenKeyTarget;
             // InitializeEyeRange (4ac5aa0..4ac61d1): group 1 provides the
             // inner/upper LEFT sample, group 0 the outer/lower RIGHT sample.
@@ -356,15 +358,25 @@ namespace Gallop.Live
             var upper = face.LeftEyeYrange.trsArray.FirstOrDefault(t => t.transform == left);
             var lower = face.RightEyeYrange.trsArray.FirstOrDefault(t => t.transform == right);
             if (inner == null || outer == null || upper == null || lower == null)
-                return null;
+                return false;
             float minY = Mathf.Min(upper._position.y, lower._position.y);
             float maxY = Mathf.Max(upper._position.y, lower._position.y);
+            leftEye = new Eye { Transform = left, Locator = ll };
+            rightEye = new Eye { Transform = right, Locator = rl };
+            leftEye.InitializeRange(new Vector2(Mathf.Min(inner._position.x, -outer._position.x), minY),
+                new Vector2(Mathf.Max(inner._position.x, -outer._position.x), maxY));
+            rightEye.InitializeRange(new Vector2(Mathf.Min(-inner._position.x, outer._position.x), minY),
+                new Vector2(Mathf.Max(-inner._position.x, outer._position.x), maxY));
+            return true;
+        }
+
+        public static LiveEyeTraceController Create(UmaContainerCharacter character)
+        {
+            if (!TryCreateEyes(character, out Eye left, out Eye right)) return null;
             var defaultTarget = new GameObject("eyeTargetObject");
             defaultTarget.transform.SetParent(character.transform, false);
             defaultTarget.transform.localPosition = DefaultTargetPosition;
-            var result = new LiveEyeTraceController(character, new Eye { Transform = left, Locator = ll, Min = new Vector2(Mathf.Min(inner._position.x, -outer._position.x), minY), Max = new Vector2(Mathf.Max(inner._position.x, -outer._position.x), maxY) }, new Eye { Transform = right, Locator = rl, Min = new Vector2(Mathf.Min(-inner._position.x, outer._position.x), minY), Max = new Vector2(Mathf.Max(-inner._position.x, outer._position.x), maxY) }, defaultTarget, true);
-            result.Left.InitializeRange(result.Left.Min, result.Left.Max);
-            result.Right.InitializeRange(result.Right.Min, result.Right.Max);
+            var result = new LiveEyeTraceController(character, left, right, defaultTarget, true);
             result.eyeMaterials = LiveEyeMaterialBinder.FindEyeMaterials(character.transform);
             return result;
         }

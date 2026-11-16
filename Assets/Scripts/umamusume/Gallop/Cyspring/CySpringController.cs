@@ -131,6 +131,7 @@ namespace Gallop
         /// If not assigned, 1.0f is used.
         /// </summary>
         public bool HasSpringRateArray => _springRateArray != null;
+        internal IEnumerable<CySpring> SpringSystems => _springArray ?? Array.Empty<CySpring>();
 
         public float SpringRate
         {

@@ -311,22 +311,22 @@ namespace LibMMD.Reader
                     bone.ChildBoneVal.Offset = MMDReaderWriteUtil.ReadVector3(reader);
                 }
 
-                if (bone.RotAxisFixed)
-                {
-                    bone.RotAxis = MMDReaderWriteUtil.ReadVector3(reader);
-                }
-
                 if (bone.AppendRotate || bone.AppendTranslate)
                 {
                     bone.AppendBoneVal.Index = MMDReaderWriteUtil.ReadIndex(reader, pmxConfig.BoneIndexSize);
                     bone.AppendBoneVal.Ratio = reader.ReadSingle();
                 }
 
+                if (bone.RotAxisFixed)
+                {
+                    bone.RotAxis = MMDReaderWriteUtil.ReadAmpVector3(reader, 1).normalized;
+                }
+
                 if (bone.UseLocalAxis)
                 {
-                    var localX = MMDReaderWriteUtil.ReadVector3(reader);
-                    var localZ = MMDReaderWriteUtil.ReadVector3(reader);
-                    var localY = Vector3.Cross(localX, localZ);
+                    var localX = MMDReaderWriteUtil.ReadAmpVector3(reader, 1);
+                    var localZ = MMDReaderWriteUtil.ReadAmpVector3(reader, 1);
+                    var localY = Vector3.Cross(localZ, localX);
                     localZ = Vector3.Cross(localX, localY);
                     localX.Normalize();
                     localY.Normalize();
