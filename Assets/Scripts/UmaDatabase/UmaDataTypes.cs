@@ -45,6 +45,13 @@ public class FaceTypeData
 }
 
 [System.Serializable]
+public class MiniFaceTypeData
+{
+    public string label;
+    public int eyebrow_l, eyebrow_r, eye_l, eye_r, mouth, cheek;
+}
+
+[System.Serializable]
 public class CharaEntry
 {
     /// master.mdb 中读取到的原始日文名。
