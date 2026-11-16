@@ -1,6 +1,4 @@
 using System;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using Gallop.Live;
 using UnityEngine;
@@ -15,7 +13,6 @@ public sealed class UnifiedExportPanel : MonoBehaviour
     public static readonly bool FeatureEnabled = false;
     private bool _open;
     private int _characterIndex;
-    private string _lastPmx;
     private string _status = "";
     private GlbAnimationRecorder _recorder;
     private Rect _window = new Rect(20, 70, 340, 330);
@@ -48,7 +45,7 @@ public sealed class UnifiedExportPanel : MonoBehaviour
             if (GUILayout.Button("Export Blender model (.glb)")) Run(() => { string p=Choose(c,"glb"); GlbCharacterExporter.Export(c,p); _status="Saved: "+p; });
             if (GUILayout.Button("Export native face package (.json + .glb)")) Run(() => { string p=Choose(c,"json"); NativeFaceExporter.Export(c,p); _status="Saved: "+p; });
             if (GUILayout.Button("Export native Live mouth timeline (.json)")) Run(() => { string p=Choose(c,"json"); NativeLipExporter.Export(c,_characterIndex,p); _status="Saved: "+p; });
-            if (GUILayout.Button("Export MMD model (.pmx)")) Run(() => { string p = Choose(c,"pmx"); if (p != null) { ModelExporter.ExportModel(c,p); _lastPmx=p; _status="Saved: "+p; } });
+            if (GUILayout.Button("Export MMD model (.pmx)")) Run(() => PMXExportPanel.Open(c));
             if (_recorder != null && _recorder.IsRecording)
             {
                 if (GUILayout.Button("Stop and save GLB animation")) Run(() => _recorder.Finish());
@@ -71,7 +68,6 @@ public sealed class UnifiedExportPanel : MonoBehaviour
                 Config.Instance.UpdateConfig(false); _status = "Reload the character / Live to apply.";
             }
         }
-        if (GUILayout.Button("Open PMX workbench")) Run(OpenWorkbench);
         GUILayout.Label(_status);
         GUI.DragWindow();
     }
@@ -94,14 +90,4 @@ public sealed class UnifiedExportPanel : MonoBehaviour
 #endif
     }
 
-    private void OpenWorkbench()
-    {
-        string root = Path.GetFullPath(Path.Combine(Application.dataPath,"..","ExternalTools","pmx"));
-        string entry = Path.Combine(root,"workflow_gui.py");
-        if (!File.Exists(entry)) throw new FileNotFoundException("Place ExternalTools/pmx in the Unity project or beside the built executable.", entry);
-        var start = new ProcessStartInfo { FileName="python", Arguments="\""+entry+"\"", WorkingDirectory=root, UseShellExecute=false };
-        // A dedicated process has its own selected model; no pipeline rewrites an export automatically.
-        if (!string.IsNullOrEmpty(_lastPmx)) start.EnvironmentVariables["PMX_INITIAL_MODEL"] = _lastPmx;
-        Process.Start(start); _status="PMX workbench opened. Choose only the processing steps you need.";
-    }
 }

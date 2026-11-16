@@ -106,26 +106,9 @@ public class UISettingsModel : MonoBehaviour
     public void ExportModel()
     {
 #if UNITY_STANDALONE || UNITY_EDITOR
-        var container = Builder.CurrentUMAContainer;
-        if (container)
-        {
-            var entry = container.CharaEntry;
-            var path = StandaloneFileBrowser.SaveFilePanel("Save PMX File", Config.Instance.MainPath, $"{entry.Id}_{entry.GetName()}", "pmx");
-            if (!string.IsNullOrEmpty(path))
-            {
-                ModelExporter.ExportModel(container, path);
-            }
-        }
-
-        var prop_container = Builder.CurrentOtherContainer;
-        if (prop_container)
-        {
-            var path = StandaloneFileBrowser.SaveFilePanel("Save PMX File", Config.Instance.MainPath, $"{prop_container}", "pmx");
-            if (!string.IsNullOrEmpty(path))
-            {
-                ModelExporter.ExportModel(prop_container, path);
-            }
-        }
+        UmaContainer container = Builder.CurrentUMAContainer;
+        if (container == null) container = Builder.CurrentOtherContainer;
+        PMXExportPanel.Open(container);
 
 #else
         UmaViewerUI.Instance.ShowMessage("Not supported on this platform", UIMessageType.Warning);

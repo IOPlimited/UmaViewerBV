@@ -2375,7 +2375,7 @@ public partial class UmaContainerCharacter : UmaContainer
         return true;
     }
 
-    private void CaptureInitialBodyPose()
+    internal void CaptureInitialBodyPose()
     {
         InitBoneTransform = new Dictionary<Transform, (Vector3 localPosition, Quaternion localRotation, Vector3 localScale)>();
         // 覆盖所有可能被 Animator 驱动的模型节点，避免特殊动作残留在控制节点或辅助骨骼中。

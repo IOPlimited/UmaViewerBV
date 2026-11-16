@@ -19,6 +19,8 @@ namespace LibMMD.Model
         public Morph[] Morphs { get; set; }
         public MMDRigidBody[] Rigidbodies { get; set; }
         public MMDJoint[] Joints { get; set; }
+        // Export provenance; not a PMX binary field.
+        internal object PhysicsExportInfo;
 
         public List<MMDTexture> TextureList = new List<MMDTexture>();
         public List<PMXEntryItem> Entrys = new List<PMXEntryItem>();

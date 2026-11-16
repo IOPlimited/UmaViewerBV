@@ -26,12 +26,12 @@ namespace LibMMD.Writer
                 Utf8Encoding = false,
                 Encoding = Encoding.Unicode,
                 ExtraUvNumber = 3, //include uv2 and color
-                VertexIndexSize = 2,
-                TextureIndexSize = 1,
-                MaterialIndexSize = 1,
-                BoneIndexSize = 2,
-                MorphIndexSize = 2,
-                RigidBodyIndexSize = 2
+                VertexIndexSize = model.Vertices.Length <= 256 ? 1 : model.Vertices.Length <= 65536 ? 2 : 4,
+                TextureIndexSize = SignedIndexSize(model.TextureList.Count),
+                MaterialIndexSize = SignedIndexSize(model.Parts.Length),
+                BoneIndexSize = SignedIndexSize(model.Bones.Length),
+                MorphIndexSize = SignedIndexSize(model.Morphs.Length),
+                RigidBodyIndexSize = SignedIndexSize(model.Rigidbodies.Length)
             };
             PMXEntryItem.Element baseElement = new PMXEntryItem.Element();
             baseElement.IsMorph = false;
@@ -45,7 +45,6 @@ namespace LibMMD.Writer
             {
                 baseElement
             };
-            model.Entrys.Insert(0, baseEntry);
             WriteMeta(writer, pmxHeader);
             WritePmxConfig(writer, PmxConfig);
             WriteModelNameAndDescription(writer, model, PmxConfig);
@@ -55,10 +54,14 @@ namespace LibMMD.Writer
             WriteParts(writer, config, model, PmxConfig);
             WriteBones(writer, model, PmxConfig);
             WriteMorphs(writer, model, PmxConfig);
-            WriteEntries(writer, model.Entrys, PmxConfig);
+            var entries = new List<PMXEntryItem>(model.Entrys);
+            entries.Insert(0, baseEntry);
+            WriteEntries(writer, entries, PmxConfig);
             WriteRigidBodies(writer, model.Rigidbodies, PmxConfig);
             WriteJoints(writer, model, PmxConfig);
         }
+
+        private static int SignedIndexSize(int count) => count <= 128 ? 1 : count <= 32768 ? 2 : 4;
 
         private static void WriteJoints(BinaryWriter writer, RawMMDModel model, PmxConfig pmxConfig)
         {
@@ -198,7 +201,7 @@ namespace LibMMD.Writer
                             var morphData = (Morph.MaterialMorphData)morph.MorphDatas[j];
                             if (morphData.Global)
                             {
-                                MMDReaderWriteUtil.WriteIndex(writer, 0, pmxConfig.MaterialIndexSize);
+                                MMDReaderWriteUtil.WriteIndex(writer, -1, pmxConfig.MaterialIndexSize);
                             }
                             else
                             {
@@ -271,15 +274,15 @@ namespace LibMMD.Writer
                     MMDReaderWriteUtil.WriteVector3(writer, bone.ChildBoneVal.Offset);
                 }
 
-                if (bone.RotAxisFixed)
-                {
-                    MMDReaderWriteUtil.WriteVector3(writer, bone.RotAxis, false);
-                }
-
                 if (bone.AppendRotate || bone.AppendTranslate)
                 {
                     MMDReaderWriteUtil.WriteIndex(writer, bone.AppendBoneVal.Index, pmxConfig.BoneIndexSize);
                     writer.Write(bone.AppendBoneVal.Ratio);
+                }
+
+                if (bone.RotAxisFixed)
+                {
+                    MMDReaderWriteUtil.WriteVector3(writer, bone.RotAxis, false);
                 }
 
                 if (bone.UseLocalAxis)

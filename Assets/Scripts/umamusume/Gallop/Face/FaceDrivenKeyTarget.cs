@@ -11,6 +11,9 @@ namespace Gallop
     public partial class FaceDrivenKeyTarget : ScriptableObject
     {
         public UmaContainerCharacter Container;
+        // PMX samples the authored transform rules without entering the Live timeline.
+        internal bool ExportNativeFaceProperties;
+        private bool NativeFaceProperties => Container.IsLive || ExportNativeFaceProperties;
         [NonSerialized]
         public Live.LiveEyeTraceController LiveEyeTrace;
         public List<EyeTarget> _eyeTarget;
@@ -462,7 +465,7 @@ namespace Gallop
                         continue;
                     if (trs.transform)
                     {
-                        if (Container.IsLive ? Live.LiveFacialTargetProperties.IsScaleBone(trs._path) : trs._isValidScaleTransform)
+                        if (NativeFaceProperties ? Live.LiveFacialTargetProperties.IsScaleBone(trs._path) : trs._isValidScaleTransform)
                             trs.transform.localScale += trs._scale * boneWeight;
                         trs.transform.localPosition += trs._position * boneWeight;
                         RotationRecorder[trs.transform] += trs._rotation * boneWeight;
@@ -618,7 +621,7 @@ namespace Gallop
                     if (trs.transform)
                     {
                         trs.transform.localPosition = trs._position;
-                        if (!Container.IsLive || Live.LiveFacialTargetProperties.IsScaleBone(trs._path))
+                        if (!NativeFaceProperties || Live.LiveFacialTargetProperties.IsScaleBone(trs._path))
                             trs.transform.localScale = trs._scale;
                         RotationRecorder[trs.transform] = trs._rotation;
                     }
@@ -636,7 +639,7 @@ namespace Gallop
             }
         }
 
-        Quaternion FacialRotation(Vector3 euler) => Container.IsLive ? Live.LiveEarQuaternion.FromMayaEuler(euler) : Gallop.Math.FromMayaEuler(euler);
+        Quaternion FacialRotation(Vector3 euler) => NativeFaceProperties ? Live.LiveEarQuaternion.FromMayaEuler(euler) : Gallop.Math.FromMayaEuler(euler);
         Quaternion FacialRotationFor(Transform target, Vector3 euler)
         {
             if (!Container.IsLive)

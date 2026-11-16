@@ -1,85 +1,56 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using System.IO;
-using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Security.Cryptography;
+using UnityEngine;
 
-public class TextureExporter
+public static class TextureExporter
 {
-    static public Texture2D duplicateTexture(Texture2D source)
+    public static Texture2D duplicateTexture(Texture2D source) => ReadTexture(source, source.width, source.height);
+
+    internal static Texture2D ReadTexture(Texture source, int width, int height, Material material = null)
     {
-        RenderTexture renderTex = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
-        Graphics.Blit(source, renderTex);
-        RenderTexture previous = RenderTexture.active;
-        RenderTexture.active = renderTex;
-        Texture2D readableText = new Texture2D(source.width, source.height);
-        readableText.ReadPixels(new Rect(0, 0, renderTex.width, renderTex.height), 0, 0);
-        readableText.Apply();
-        RenderTexture.active = previous;
-        RenderTexture.ReleaseTemporary(renderTex);
-        return readableText;
+        var previous = RenderTexture.active;
+        var target = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+        Texture2D result = null;
+        bool srgb = GL.sRGBWrite;
+        try
+        {
+            GL.sRGBWrite = false;
+            if (material == null) Graphics.Blit(source, target); else Graphics.Blit(source, target, material);
+            RenderTexture.active = target;
+            result = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            result.ReadPixels(new Rect(0, 0, width, height), 0, 0); result.Apply();
+            return result;
+        }
+        catch { if (result != null) UnityEngine.Object.DestroyImmediate(result); throw; }
+        finally { GL.sRGBWrite = srgb; RenderTexture.active = previous; RenderTexture.ReleaseTemporary(target); }
     }
 
-    static public string[] ExportAllTexture(string path, GameObject gameobj)
+    internal static string WritePng(string directory, Texture2D texture)
     {
-        string savePath = path + "/Texture2D/";
-        List<string> textureNames = new List<string>();
-        if (!Directory.Exists(savePath))
-        {
-            Directory.CreateDirectory(savePath);
-        }
+        byte[] bytes = texture.EncodeToPNG();
+        string hash;
+        using (var sha = SHA256.Create()) hash = BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
+        string relative = "Texture2D/" + hash + ".png";
+        Directory.CreateDirectory(Path.Combine(directory, "Texture2D"));
+        File.WriteAllBytes(Path.Combine(directory, relative), bytes);
+        return relative;
+    }
 
-        foreach (Renderer renderer in gameobj.transform.GetComponentsInChildren<Renderer>())
-        {
-            foreach (Material mat in renderer.sharedMaterials)
-            {
-                // 获取材质的所有属性；如果某个属性对应纹理，则提取该纹理
-                Shader mat_shader = mat.shader;
-                int p_num = mat_shader.GetPropertyCount();
-                for (int i = 0; i < p_num; i++)
-                {
-                    string p_name = mat_shader.GetPropertyName(i);
-                    if (mat_shader.GetPropertyType(i) == UnityEngine.Rendering.ShaderPropertyType.Texture)
+    public static string[] ExportAllTexture(string path, GameObject gameobj)
+    {
+        var paths = new HashSet<string>();
+        var seen = new HashSet<Texture2D>();
+        foreach (Renderer renderer in PMXGeometryExporter.Collect(gameobj))
+            foreach (Material material in renderer.sharedMaterials)
+                foreach (string property in material.GetTexturePropertyNames())
+                    if (material.GetTexture(property) is Texture2D texture && seen.Add(texture))
                     {
-                        Texture2D mat_texture = (Texture2D)mat.GetTexture(p_name);
-
-                        if (mat_texture)
-                        {
-                            string tex_name = mat_texture.name;
-                            string tex_path = savePath + tex_name + ".png";
-                            var dpath = "Texture2D/" + tex_name + ".png";
-                            if (!textureNames.Contains(dpath))
-                            {
-                                textureNames.Add(dpath);
-                            }
-                            if (!File.Exists(tex_path))
-                            {   
-
-                                mat_texture = duplicateTexture(mat_texture);
-
-                                if (tex_name.EndsWith("eye0"))
-                                {
-                                    var clip_texture = duplicateTexture(mat_texture);
-                                    var pixels = clip_texture.GetPixels(0, 0, clip_texture.width / 4, clip_texture.height);
-                                    clip_texture.Reinitialize(clip_texture.width / 4, clip_texture.height);
-                                    clip_texture.SetPixels(pixels);
-
-
-                                    byte[] clip = clip_texture.EncodeToPNG();
-                                    File.WriteAllBytes(tex_path, clip);
-                                    tex_path = savePath + tex_name + "_all" + ".png";
-                                }
-
-                                byte[] bytes = mat_texture.EncodeToPNG();
-                                File.WriteAllBytes(tex_path, bytes);
-                            }
-                        }
+                        var copy = duplicateTexture(texture);
+                        try { paths.Add(WritePng(path, copy)); }
+                        finally { UnityEngine.Object.DestroyImmediate(copy); }
                     }
-                }
-            }
-        }
-        Debug.Log("纹理提取成功。");
-        return textureNames.ToArray();
+        var result = new string[paths.Count]; paths.CopyTo(result); Array.Sort(result, StringComparer.Ordinal); return result;
     }
 }

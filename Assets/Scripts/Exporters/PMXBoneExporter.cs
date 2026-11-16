@@ -4,9 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-/// <summary>
-/// 将 Uma 的运行时骨架整理为 PMX 可用的标准骨架。
-/// </summary>
+/// <summary>Builds MMD controls around the assembled model's native deformation skeleton.</summary>
 internal static class PMXBoneExporter
 {
     internal sealed class Result
@@ -15,470 +13,273 @@ internal static class PMXBoneExporter
         public Dictionary<Transform, int> BoneIndexes { get; set; }
     }
 
-    private static readonly Dictionary<string, string> BoneNameMapping = new Dictionary<string, string>()
+    // katboi01/UmaViewer 3cb3239: native active hierarchy, only Col_ filtered,
+    // no synthetic controls, dependency sorting, visibility policy or display groups.
+    internal static Result BuildNative(Transform skeletonRoot, Transform coordinateRoot,
+        bool renameBones, bool mini)
     {
-        { "Spine", "上半身" }, { "Chest", "上半身2" }, { "Neck", "首" }, { "Head", "頭" },
-        { "Shoulder_L", "左肩" }, { "Arm_L", "左腕" }, { "Elbow_L", "左ひじ" },
-        { "ArmRoll_L", "左手捩" }, { "Wrist_L", "左手首" },
-        { "Shoulder_R", "右肩" }, { "Arm_R", "右腕" }, { "Elbow_R", "右ひじ" },
-        { "ArmRoll_R", "右手捩" }, { "Wrist_R", "右手首" },
-        { "Thumb_01_L", "左親指０" }, { "Thumb_02_L", "左親指１" }, { "Thumb_03_L", "左親指２" },
-        { "Index_01_L", "左人指１" }, { "Index_02_L", "左人指２" }, { "Index_03_L", "左人指３" },
-        { "Middle_01_L", "左中指１" }, { "Middle_02_L", "左中指２" }, { "Middle_03_L", "左中指３" },
-        { "Ring_01_L", "左薬指１" }, { "Ring_02_L", "左薬指２" }, { "Ring_03_L", "左薬指３" },
-        { "Pinky_01_L", "左小指１" }, { "Pinky_02_L", "左小指２" }, { "Pinky_03_L", "左小指３" },
-        { "Thumb_01_R", "右親指０" }, { "Thumb_02_R", "右親指１" }, { "Thumb_03_R", "右親指２" },
-        { "Index_01_R", "右人指１" }, { "Index_02_R", "右人指２" }, { "Index_03_R", "右人指３" },
-        { "Middle_01_R", "右中指１" }, { "Middle_02_R", "右中指２" }, { "Middle_03_R", "右中指３" },
-        { "Ring_01_R", "右薬指１" }, { "Ring_02_R", "右薬指２" }, { "Ring_03_R", "右薬指３" },
-        { "Pinky_01_R", "右小指１" }, { "Pinky_02_R", "右小指２" }, { "Pinky_03_R", "右小指３" },
-        { "Thigh_L", "左足" }, { "Knee_L", "左ひざ" }, { "Ankle_L", "左足首" }, { "Toe_L", "左足先EX" },
-        { "Thigh_R", "右足" }, { "Knee_R", "右ひざ" }, { "Ankle_R", "右足首" }, { "Toe_R", "右足先EX" },
-        { "Eye_L", "左目" }, { "Eye_R", "右目" },
-        { "Ear_01_L", "左耳" }, { "Ear_02_L", "左耳1" }, { "Ear_03_L", "左耳2" },
-        { "Ear_01_R", "右耳" }, { "Ear_02_R", "右耳1" }, { "Ear_03_R", "右耳2" },
-        { "Mouth", "口" }, { "Jaw", "顎" }
-    };
+        var sources = skeletonRoot.GetComponentsInChildren<Transform>()
+            .Where(t => !t.name.Contains("Col_")).ToArray();
+        var indexes = new Dictionary<Transform, int>();
+        for (int i = 0; i < sources.Length; i++) indexes.Add(sources[i], i);
+        var profile = new PMXBoneProfile(sources, new HashSet<Transform>(sources), mini);
+        var bones = new Bone[sources.Length];
+        for (int i = 0; i < sources.Length; i++)
+        {
+            Transform source = sources[i];
+            int parent = source.parent != null && indexes.TryGetValue(source.parent, out int pi) ? pi : -1;
+            int child = source.childCount > 0 && indexes.TryGetValue(source.GetChild(0), out int ci) ? ci : -1;
+            bones[i] = new Bone
+            {
+                Name = renameBones ? profile.Name(source) : source.name, NameEn = source.name,
+                Position = coordinateRoot.InverseTransformPoint(source.position), ParentIndex = parent,
+                TransformLevel = 0, Visible = true, Movable = true, Rotatable = true, Controllable = true,
+                ChildBoneVal = new Bone.ChildBone { ChildUseId = true, Index = child }
+            };
+        }
+        return new Result { Bones = bones, BoneIndexes = indexes };
+    }
 
-    private static readonly string[] RequiredBoneNames =
+    // Build visibility and frames using canonical roles before changing the output names.
+    internal static void UseEnglishNames(IEnumerable<Bone> bones)
     {
-        "Hip", "Spine", "Chest", "Neck", "Head",
-        "Shoulder_L", "Arm_L", "Elbow_L", "ArmRoll_L", "Wrist_L",
-        "Shoulder_R", "Arm_R", "Elbow_R", "ArmRoll_R", "Wrist_R",
-        "Hand_Attach_L", "Hand_Attach_R",
-        "Thigh_L", "Knee_L", "Ankle_L", "Toe_L",
-        "Thigh_R", "Knee_R", "Ankle_R", "Toe_R", "Eye_L", "Eye_R"
-    };
+        foreach (Bone bone in bones) bone.Name = bone.NameEn;
+    }
 
     internal static Result Build(Transform skeletonRoot, Transform coordinateRoot, IEnumerable<Renderer> renderers,
-        IEnumerable<Transform> additionalBones = null)
+        IEnumerable<Transform> additionalBones = null, UmaContainerCharacter character = null)
     {
-        Transform[] hierarchy = skeletonRoot.GetComponentsInChildren<Transform>(true);
-        HashSet<Transform> selected = CollectReferencedBones(renderers, skeletonRoot);
-
-        // CySpring 的末端骨可能没有蒙皮权重，但 PMX 刚体仍需关联真实骨骼。
-        if (additionalBones != null)
-        {
-            foreach (Transform bone in additionalBones)
-            {
-                if (bone != null && !IsRuntimeHelper(bone.name)) selected.Add(bone);
-            }
-        }
-
-        // 某些标准骨可能没有直接权重，但仍是动画和父链所必需的。
-        foreach (string boneName in RequiredBoneNames)
-        {
-            Transform bone = hierarchy.FirstOrDefault(t => t.name.Equals(boneName, StringComparison.OrdinalIgnoreCase));
-            if (bone != null)
-            {
-                selected.Add(bone);
-            }
-        }
-
-        Transform hip = Find(selected, "Hip");
-        List<Bone> bones = new List<Bone>();
-        Dictionary<Transform, int> indexes = new Dictionary<Transform, int>();
-        Vector3 origin = coordinateRoot.InverseTransformPoint(skeletonRoot.position);
-        Vector3 hipPosition = hip != null ? coordinateRoot.InverseTransformPoint(hip.position) : origin;
-
-        int parentOfAll = AddVirtualBone(bones, "全ての親", "ParentOfAll", origin, -1, true);
-        int center = AddVirtualBone(bones, "センター", "Center", origin, parentOfAll, true);
+        var snapshot = new PMXSkeletonSnapshot(skeletonRoot, coordinateRoot, renderers, additionalBones, character != null && character.IsMini);
+        var profile = snapshot.Profile;
+        var hip = profile.Find("Hip");
+        var bones = new List<Bone>();
+        var indexes = new Dictionary<Transform, int>();
+        Vector3 hipPosition = hip != null ? coordinateRoot.InverseTransformPoint(hip.position) : snapshot.Origin;
+        int all = AddVirtualBone(bones, "全ての親", "ParentOfAll", snapshot.Origin, -1, true);
+        int center = AddVirtualBone(bones, "センター", "Center", snapshot.Origin, all, true);
         int groove = AddVirtualBone(bones, "グルーブ", "Groove", hipPosition, center, true);
-        int waist = AddVirtualBone(bones, "腰", "Waist", hipPosition, groove, false);
-        int lowerBody = AddVirtualBone(bones, "下半身", "LowerBody", hipPosition, waist, false);
+        int waist = AddVirtualBone(bones, "腰", "WaistControl", hipPosition, groove, false);
+        indexes[skeletonRoot] = center;
 
-        if (skeletonRoot != null) indexes[skeletonRoot] = center;
-        if (hip != null) indexes[hip] = waist;
-
-        foreach (Transform transform in hierarchy)
+        foreach (var node in snapshot.Nodes)
         {
-            if (!selected.Contains(transform) || transform == hip || IsRuntimeHelper(transform.name))
+            int parent = waist;
+            if (node.Source != hip)
             {
-                continue;
+                Transform ancestor = node.Parent;
+                while (ancestor != null && !indexes.ContainsKey(ancestor)) ancestor = ancestor.parent;
+                if (ancestor != null) parent = indexes[ancestor];
+                Transform upper = profile.Find("Waist") ?? profile.Find("Spine");
+                if (ancestor == hip && upper != null && (node.Source == upper || upper.IsChildOf(node.Source))) parent = waist;
             }
-
-            int parentIndex = ResolveParentIndex(transform, hip, selected, indexes, waist, lowerBody);
-            Bone bone = CreateTransformBone(transform, coordinateRoot, parentIndex);
-            indexes[transform] = bones.Count;
+            string name = profile.Name(node.Source);
+            var bone = new Bone { Name = name, NameEn = node.Source.name, Position = node.Position,
+                ParentIndex = parent, Rotatable = true, Movable = name.Contains("補助"),
+                Controllable = true, ChildBoneVal = new Bone.ChildBone { Offset = Vector3.up * .04f } };
+            indexes[node.Source] = bones.Count;
             bones.Add(bone);
         }
 
-        int bothEyes = AddBothEyesControlBone(bones, indexes, coordinateRoot);
-        ReparentTongueChain(bones, indexes);
-        RebuildChildLinks(bones);
-        AddFootIk(bones, indexes, coordinateRoot, parentOfAll, "L");
-        AddFootIk(bones, indexes, coordinateRoot, parentOfAll, "R");
-        RebuildChildLinks(bones);
-        AlignElbowArmRollAndWrist(bones, indexes, coordinateRoot);
-        // 必须在重建普通骨骼末端之后设置，否则挂点的显式垂直末端会被子骨关系覆盖。
-        AddHandAttachmentCompatibilityBones(bones, indexes, coordinateRoot);
-        SetBothEyesTailToNoseBridge(bones, bothEyes, indexes, coordinateRoot);
+        foreach (string side in new[] { "L", "R" })
+        {
+            AddTwist(bones, indexes, profile, "Arm_" + side, "ShoulderRoll_" + side, "Elbow_" + side, side, true);
+            AddTwist(bones, indexes, profile, "Elbow_" + side, "ArmRoll_" + side, "Wrist_" + side, side, false);
+            AddWaistCancel(bones, indexes, profile, waist, side);
+        }
+        SetDisplayTails(bones, indexes, snapshot, coordinateRoot);
+        AddFootIk(bones, indexes, coordinateRoot, all, "L");
+        AddFootIk(bones, indexes, coordinateRoot, all, "R");
+        foreach (string side in new[] { "L", "R" })
+        {
+            AddForefootControl(bones, indexes, profile, side);
+            AddHandAttachment(bones, indexes, snapshot, side);
+        }
+        PMXEyeExporter.Build(bones, indexes, coordinateRoot, character);
+        AllocateNames(bones);
+        SortByDependencies(bones, indexes);
+        PMXBoneDisplay.ApplyVisibility(bones);
         Validate(bones);
-
         return new Result { Bones = bones.ToArray(), BoneIndexes = indexes };
     }
 
-    private static int AddBothEyesControlBone(List<Bone> bones, Dictionary<Transform, int> indexes,
-        Transform coordinateRoot)
+    private static void AddTwist(List<Bone> bones, Dictionary<Transform, int> indexes, PMXBoneProfile profile,
+        string parentName, string rollName, string childName, string side, bool upper)
     {
-        Transform head = Find(indexes.Keys, "Head");
-        Transform leftEye = Find(indexes.Keys, "Eye_L");
-        Transform rightEye = Find(indexes.Keys, "Eye_R");
-        if (head == null || (leftEye == null && rightEye == null)) return -1;
-
-        // Preserve the standard both-eyes control chain while reparenting both eye bones.
-        int bothEyes = AddVirtualBone(
-            bones,
-            "\u4e21\u76ee",
-            "BothEyes",
-            coordinateRoot.InverseTransformPoint(head.position),
-            indexes[head],
-            false);
-
-        if (leftEye != null) bones[indexes[leftEye]].ParentIndex = bothEyes;
-        if (rightEye != null) bones[indexes[rightEye]].ParentIndex = bothEyes;
-        return bothEyes;
+        var parent = profile.Find(parentName); var roll = profile.Find(rollName); var child = profile.Find(childName);
+        if (parent == null || roll == null || child == null || !indexes.ContainsKey(roll)) return;
+        int parentIndex = indexes[parent], rollIndex = indexes[roll], childIndex = indexes[child];
+        Vector3 axis = (bones[childIndex].Position - bones[parentIndex].Position).normalized;
+        if (axis.sqrMagnitude < .5f) return;
+        int control = AddVirtualBone(bones, (side == "L" ? "左" : "右") + (upper ? "腕捩" : "手捩"),
+            (upper ? "ArmTwist_" : "WristTwist_") + side, bones[rollIndex].Position, parentIndex, false);
+        bones[control].RotAxisFixed = true;
+        bones[control].RotAxis = axis;
+        bones[control].ChildBoneVal = new Bone.ChildBone { Offset = axis * .04f };
+        // The native Roll remains a deformation bone, with its authored weights
+        // and attachments. A separate control drives it and the distal chain.
+        bones[rollIndex].AppendRotate = true;
+        bones[rollIndex].AppendBoneVal = new Bone.AppendBone { Index = control, Ratio = 1 };
+        bones[rollIndex].Visible = false;
+        bones[rollIndex].ChildBoneVal = new Bone.ChildBone { Offset = axis * .04f };
+        int branch = childIndex;
+        while (bones[branch].ParentIndex != parentIndex && bones[branch].ParentIndex >= 0)
+            branch = bones[branch].ParentIndex;
+        if (branch != rollIndex && bones[branch].ParentIndex == parentIndex) bones[branch].ParentIndex = control;
     }
 
-    private static void SetBothEyesTailToNoseBridge(List<Bone> bones, int bothEyes,
-        Dictionary<Transform, int> indexes, Transform coordinateRoot)
+    private static void AddWaistCancel(List<Bone> bones, Dictionary<Transform, int> indexes,
+        PMXBoneProfile profile, int waist, string side)
     {
-        if (bothEyes < 0) return;
+        var thigh = profile.Find("Thigh_" + side);
+        if (thigh == null || !indexes.TryGetValue(thigh, out int index)) return;
+        int cancel = AddVirtualBone(bones, "腰キャンセル" + (side == "L" ? "左" : "右"),
+            "WaistCancel_" + side, bones[index].Position, bones[index].ParentIndex, false);
+        bones[cancel].Visible = false; bones[cancel].Controllable = false;
+        bones[cancel].AppendRotate = true;
+        bones[cancel].AppendBoneVal = new Bone.AppendBone { Index = waist, Ratio = -1 };
+        bones[index].ParentIndex = cancel;
+    }
 
-        Transform head = Find(indexes.Keys, "Head");
-        Transform leftEye = Find(indexes.Keys, "Eye_L");
-        Transform rightEye = Find(indexes.Keys, "Eye_R");
-        if (head == null) return;
-
-        Transform nose = FindNoseBone(head);
-        Vector3 noseBridgePosition;
-        if (nose != null)
+    private static void SetDisplayTails(List<Bone> bones, Dictionary<Transform, int> indexes,
+        PMXSkeletonSnapshot snapshot, Transform coordinateRoot)
+    {
+        var native = snapshot.Nodes.ToDictionary(node => indexes[node.Source]);
+        for (int index = 0; index < bones.Count; index++)
         {
-            // Prefer a real nose bone so the endpoint follows each character face shape.
-            noseBridgePosition = coordinateRoot.InverseTransformPoint(nose.position);
+            var bone = bones[index];
+            if (bone.RotAxisFixed || bone.AppendRotate || bone.UseLocalAxis) continue;
+            int child = bones.FindIndex(candidate => candidate.ParentIndex == index &&
+                Vector3.SqrMagnitude(candidate.Position - bone.Position) > 1e-10f);
+            bone.ChildBoneVal = child >= 0 ? new Bone.ChildBone { ChildUseId = true, Index = child } :
+                new Bone.ChildBone { Offset = native.TryGetValue(index, out var node)
+                    ? NativeTailOffset(node, snapshot.Root, coordinateRoot,
+                        bones.Any(candidate => candidate.ParentIndex == index))
+                    : Vector3.up * .04f };
         }
-        else if (leftEye != null && rightEye != null)
+        var profile = snapshot.Profile;
+        void Aim(string from, string to)
         {
-            // Fall back to the eye midpoint instead of accidentally using the left eye as the endpoint.
-            noseBridgePosition = coordinateRoot.InverseTransformPoint((leftEye.position + rightEye.position) * 0.5f);
+            var a = profile.Find(from); var b = profile.Find(to);
+            if (a == null || b == null || !indexes.TryGetValue(a, out int ai) || !indexes.TryGetValue(b, out int bi)) return;
+            if ((bones[ai].Position - bones[bi].Position).sqrMagnitude > 1e-10f)
+                bones[ai].ChildBoneVal = new Bone.ChildBone { ChildUseId = true, Index = bi };
         }
-        else
+        Aim("Hip", "Waist"); Aim("Waist", profile.Find("Spine") != null ? "Spine" : "Chest");
+        Aim("Spine", "Chest"); Aim("Chest", "Neck"); Aim("Neck", "Head");
+        foreach (string side in new[] { "L", "R" })
         {
-            return;
-        }
-
-        Bone controlBone = bones[bothEyes];
-        controlBone.ChildBoneVal.ChildUseId = false;
-        controlBone.ChildBoneVal.Offset = noseBridgePosition - controlBone.Position;
-    }
-
-    private static Transform FindNoseBone(Transform head)
-    {
-        Transform[] descendants = head.GetComponentsInChildren<Transform>(true);
-        Transform exactMatch = descendants.FirstOrDefault(t => t.name.Equals("Nose", StringComparison.OrdinalIgnoreCase));
-        if (exactMatch != null) return exactMatch;
-
-        // Uma nose bones may include numeric suffixes; prefer the root nose bone over facial detail bones.
-        return descendants.FirstOrDefault(t =>
-            t.name.StartsWith("Nose_00", StringComparison.OrdinalIgnoreCase) ||
-            t.name.StartsWith("Nose_01", StringComparison.OrdinalIgnoreCase) ||
-            t.name.StartsWith("Nose", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static void AlignElbowArmRollAndWrist(List<Bone> bones,
-        Dictionary<Transform, int> indexes, Transform coordinateRoot)
-    {
-        AlignElbowArmRollAndWrist(bones, indexes, coordinateRoot, "L");
-        AlignElbowArmRollAndWrist(bones, indexes, coordinateRoot, "R");
-    }
-
-    private static void AlignElbowArmRollAndWrist(List<Bone> bones,
-        Dictionary<Transform, int> indexes, Transform coordinateRoot, string side)
-    {
-        Transform elbow = Find(indexes.Keys, "Elbow_" + side);
-        Transform armRoll = Find(indexes.Keys, "ArmRoll_" + side);
-        Transform wrist = Find(indexes.Keys, "Wrist_" + side);
-        if (elbow == null || armRoll == null || wrist == null ||
-            !indexes.TryGetValue(elbow, out int elbowIndex) ||
-            !indexes.TryGetValue(armRoll, out int armRollIndex) ||
-            !indexes.TryGetValue(wrist, out int wristIndex)) return;
-
-        // ArmRoll 根部是正确的腕部连接坐标：肘末端、ArmRoll 根部、手首根部必须三点重合。
-        // 仅校正 PMX 输出坐标与末端指向，不改 Unity 原骨架的动画层级。
-        Vector3 connectionPosition = coordinateRoot.InverseTransformPoint(armRoll.position);
-        bones[armRollIndex].Position = connectionPosition;
-        bones[wristIndex].Position = connectionPosition;
-        bones[elbowIndex].ChildBoneVal.ChildUseId = true;
-        bones[elbowIndex].ChildBoneVal.Index = wristIndex;
-    }
-
-    private static void AddHandAttachmentCompatibilityBones(List<Bone> bones,
-        Dictionary<Transform, int> indexes, Transform coordinateRoot)
-    {
-        AddHandAttachmentCompatibilityBone(bones, indexes, coordinateRoot, "L");
-        AddHandAttachmentCompatibilityBone(bones, indexes, coordinateRoot, "R");
-    }
-
-    private static void AddHandAttachmentCompatibilityBone(List<Bone> bones,
-        Dictionary<Transform, int> indexes, Transform coordinateRoot, string side)
-    {
-        Transform handAttach = Find(indexes.Keys, "Hand_Attach_" + side);
-        if (handAttach == null || !indexes.TryGetValue(handAttach, out int handAttachIndex)) return;
-
-        Vector3 attachmentPosition = coordinateRoot.InverseTransformPoint(handAttach.position);
-        Vector3 tailOffset = CalculateHandAttachmentTailOffset(
-            indexes.Keys, handAttach, coordinateRoot, side);
-
-        // 原 Hand_Attach 的位置就是掌心根部；90 度修正只作用于骨骼末端，不能移动根部。
-        Bone attachmentBone = bones[handAttachIndex];
-        attachmentBone.Position = attachmentPosition;
-        attachmentBone.ChildBoneVal.ChildUseId = false;
-        attachmentBone.ChildBoneVal.Offset = tailOffset;
-
-        string dummyName = side == "L" ? "ダミー.L" : "ダミー.R";
-        if (bones.Any(b => b.Name.Equals(dummyName, StringComparison.OrdinalIgnoreCase))) return;
-
-        // 保留游戏内部 Hand_Attach，并补出外部手持场景按名称查找的兼容挂点。
-        // 两骨同根、同向；父子关系仍用于继承手部运动，但不再用子骨位置定义末端。
-        int dummyIndex = AddVirtualBone(
-            bones,
-            dummyName,
-            "Dummy." + side,
-            attachmentPosition,
-            handAttachIndex,
-            false);
-        bones[dummyIndex].ChildBoneVal.ChildUseId = false;
-        bones[dummyIndex].ChildBoneVal.Offset = tailOffset;
-    }
-
-    private static Vector3 CalculateHandAttachmentTailOffset(IEnumerable<Transform> transforms,
-        Transform handAttach,
-        Transform coordinateRoot, string side)
-    {
-        Transform wrist = Find(transforms, "Wrist_" + side);
-        Transform elbow = Find(transforms, "Elbow_" + side);
-        if (wrist == null || elbow == null) return Vector3.up * 0.1f;
-
-        Transform armRoll = Find(transforms, "ArmRoll_" + side);
-        // 手首导出坐标已经对齐 ArmRoll；挂点计算必须使用同一坐标源，不能继续读取旧 Wrist Transform。
-        Vector3 wristPosition = coordinateRoot.InverseTransformPoint(
-            armRoll != null ? armRoll.position : wrist.position);
-        Vector3 elbowPosition = coordinateRoot.InverseTransformPoint(elbow.position);
-        Vector3 attachmentPosition = coordinateRoot.InverseTransformPoint(handAttach.position);
-        Vector3 wristToAttachment = attachmentPosition - wristPosition;
-        if (wristToAttachment.sqrMagnitude < 0.000001f) return Vector3.up * 0.1f;
-
-        Vector3 wristBoneDirection = wristPosition - elbowPosition;
-        if (wristBoneDirection.sqrMagnitude < 0.000001f) return Vector3.up * wristToAttachment.magnitude;
-
-        // 挂点骨以掌心为根部，末端直接垂直于手首骨（Elbow -> Wrist），而不是垂直于世界坐标。
-        // 只沿模型平面旋转方向，并继续使用原 Wrist -> Hand_Attach 距离作为辅助骨长度。
-        float attachmentLength = wristToAttachment.magnitude;
-        Vector3 positiveCandidate =
-            (Quaternion.AngleAxis(90f, Vector3.forward) * wristBoneDirection).normalized * attachmentLength;
-        Vector3 negativeCandidate =
-            (Quaternion.AngleAxis(-90f, Vector3.forward) * wristBoneDirection).normalized * attachmentLength;
-
-        string[] fingerRootNames =
-        {
-            "Index_01_" + side,
-            "Middle_01_" + side,
-            "Ring_01_" + side,
-            "Pinky_01_" + side
-        };
-        List<Transform> fingerRoots = fingerRootNames
-            .Select(name => Find(transforms, name))
-            .Where(root => root != null)
-            .ToList();
-        if (fingerRoots.Count == 0)
-        {
-            // 缺少手指骨时，以原挂点相对手首的位置判断掌心侧，再选择相反方向。
-            float positiveAlignment = Vector3.Dot(positiveCandidate.normalized, wristToAttachment.normalized);
-            float negativeAlignment = Vector3.Dot(negativeCandidate.normalized, wristToAttachment.normalized);
-            return positiveAlignment <= negativeAlignment ? positiveCandidate : negativeCandidate;
-        }
-
-        Vector3 knuckleCenter = Vector3.zero;
-        foreach (Transform fingerRoot in fingerRoots)
-        {
-            knuckleCenter += coordinateRoot.InverseTransformPoint(fingerRoot.position);
-        }
-        knuckleCenter /= fingerRoots.Count;
-
-        // 手调正确结果的末端背离手指，因此选择与“掌心根部 -> 四指根中心”夹角更大的候选。
-        Vector3 attachmentToKnuckles = knuckleCenter - attachmentPosition;
-        float positiveTowardFingers = Vector3.Dot(positiveCandidate.normalized, attachmentToKnuckles.normalized);
-        float negativeTowardFingers = Vector3.Dot(negativeCandidate.normalized, attachmentToKnuckles.normalized);
-        return positiveTowardFingers <= negativeTowardFingers ? positiveCandidate : negativeCandidate;
-    }
-
-    private static HashSet<Transform> CollectReferencedBones(IEnumerable<Renderer> renderers, Transform skeletonRoot)
-    {
-        HashSet<Transform> weightedBones = new HashSet<Transform>();
-        foreach (SkinnedMeshRenderer renderer in renderers.OfType<SkinnedMeshRenderer>())
-        {
-            Mesh mesh = renderer.sharedMesh;
-            Transform[] rendererBones = renderer.bones;
-            if (mesh == null || rendererBones == null) continue;
-
-            // renderer.bones 还会包含脸部占位骨；只有顶点实际使用且权重大于零时才算蒙皮引用。
-            foreach (BoneWeight weight in mesh.boneWeights)
+            Aim("Shoulder_" + side, "Arm_" + side); Aim("Arm_" + side, "Elbow_" + side);
+            Aim("Elbow_" + side, "Wrist_" + side); Aim("Wrist_" + side, "Middle_01_" + side);
+            Aim("Thigh_" + side, "Knee_" + side); Aim("Knee_" + side, "Ankle_" + side);
+            Aim("Ankle_" + side, "Toe_" + side); Aim("Ankle_offset_" + side, "Toe_" + side);
+            foreach (string finger in new[] { "Thumb", "Index", "Middle", "Ring", "Pinky" })
             {
-                AddWeightedBone(weightedBones, rendererBones, weight.boneIndex0, weight.weight0);
-                AddWeightedBone(weightedBones, rendererBones, weight.boneIndex1, weight.weight1);
-                AddWeightedBone(weightedBones, rendererBones, weight.boneIndex2, weight.weight2);
-                AddWeightedBone(weightedBones, rendererBones, weight.boneIndex3, weight.weight3);
+                Aim(finger + "_01_" + side, profile.Find(finger + "_02_" + side) != null ? finger + "_02_" + side : finger + "_03_" + side);
+                Aim(finger + "_02_" + side, finger + "_03_" + side);
             }
         }
+        var head = profile.Find("Head");
+        if (head != null && indexes.TryGetValue(head, out int headIndex))
+            bones[headIndex].ChildBoneVal = new Bone.ChildBone { Offset = Vector3.up * .08f };
+    }
 
-        HashSet<Transform> result = new HashSet<Transform>();
-        foreach (Transform weightedBone in weightedBones)
+    private static Vector3 NativeTailOffset(PMXSkeletonSnapshot.Node node, Transform skeletonRoot,
+        Transform coordinateRoot, bool hasExportedChildren)
+    {
+        // An unweighted authored endpoint can be omitted from the exported bone
+        // set while still providing the correct display direction and length.
+        foreach (Transform child in node.Source)
         {
-            // 无直接权重的 offset/连接骨仍可能是有效父链，必须补齐到骨架根节点。
-            Transform current = weightedBone;
-            while (current != null)
-            {
-                // skeletonRoot 已映射到虚拟“センター”，不能再作为普通骨重复导出。
-                if (current == skeletonRoot) break;
-                if (!IsRuntimeHelper(current.name)) result.Add(current);
-                current = current.parent;
-            }
+            if (child.GetComponent<UIHandle>() != null ||
+                child.name.StartsWith("Col_", StringComparison.OrdinalIgnoreCase)) continue;
+            Vector3 offset = coordinateRoot.InverseTransformPoint(child.position) - node.Position;
+            if (offset.sqrMagnitude > 1e-10f) return offset;
         }
 
-        return result;
-    }
+        // Pure terminal markers need no artificial length. Do not confuse an
+        // unweighted control with a marker when it still has exported children.
+        if (!node.HasWeights && !hasExportedChildren) return Vector3.zero;
 
-    private static void AddWeightedBone(HashSet<Transform> result, Transform[] bones, int boneIndex, float weight)
-    {
-        const float MinimumWeight = 0.000001f;
-        if (weight <= MinimumWeight || boneIndex < 0 || boneIndex >= bones.Length) return;
-
-        Transform bone = bones[boneIndex];
-        if (bone != null && !IsRuntimeHelper(bone.name)) result.Add(bone);
-    }
-
-    private static bool IsRuntimeHelper(string name)
-    {
-        return name.StartsWith("Col_", StringComparison.OrdinalIgnoreCase) ||
-               name.EndsWith("_Handle", StringComparison.OrdinalIgnoreCase) ||
-               name.EndsWith("_Pole", StringComparison.OrdinalIgnoreCase) ||
-               name.EndsWith("_Target", StringComparison.OrdinalIgnoreCase) ||
-               name.EndsWith("_Ctrl", StringComparison.OrdinalIgnoreCase) ||
-               name.IndexOf("locator", StringComparison.OrdinalIgnoreCase) >= 0;
-    }
-
-    private static Transform Find(IEnumerable<Transform> bones, string name)
-    {
-        return bones.FirstOrDefault(t => t.name.Equals(name, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static int ResolveParentIndex(Transform transform, Transform hip, HashSet<Transform> selected,
-        Dictionary<Transform, int> indexes, int waist, int lowerBody)
-    {
-        Transform parent = transform.parent;
-        while (parent != null && parent != hip)
+        // Coincident offset joints are common. Continue the nearest nonzero
+        // native segment instead of inventing a model-space upward direction.
+        for (Transform parent = node.Parent; parent != null; parent = parent.parent)
         {
-            if (selected.Contains(parent) && indexes.TryGetValue(parent, out int parentIndex)) return parentIndex;
-            parent = parent.parent;
+            Vector3 incoming = node.Position - coordinateRoot.InverseTransformPoint(parent.position);
+            if (incoming.sqrMagnitude > 1e-10f) return incoming * .6f;
+            if (parent == skeletonRoot) break;
         }
-
-        if (parent == hip)
-        {
-            // 上半身控制链中的实际骨挂腰，其余髋部支链（腿、裙摆、尾巴）挂下半身。
-            return IsUpperBodyBranch(transform, hip) ? waist : lowerBody;
-        }
-        return waist;
+        return Vector3.zero;
     }
 
-    private static bool IsUpperBodyBranch(Transform transform, Transform hip)
+    private static void AddHandAttachment(List<Bone> bones, Dictionary<Transform, int> indexes,
+        PMXSkeletonSnapshot snapshot, string side)
     {
-        Transform current = transform;
-        while (current != null && current != hip)
-        {
-            if (current.name.Equals("Spine", StringComparison.OrdinalIgnoreCase) ||
-                current.name.Equals("Waist", StringComparison.OrdinalIgnoreCase) ||
-                current.name.Equals("UpBody_Ctrl", StringComparison.OrdinalIgnoreCase)) return true;
-            current = current.parent;
-        }
-        return false;
+        var hand = snapshot.Profile.Find("Hand_Attach_" + side);
+        if (hand == null || !indexes.TryGetValue(hand, out int handIndex)) return;
+        var node = snapshot.Nodes.First(n => n.Source == hand);
+        bones[handIndex].Visible = false;
+        bones[handIndex].ChildBoneVal = new Bone.ChildBone { Offset = node.Right * .04f };
+        int control = AddVirtualBone(bones, (side == "L" ? "左" : "右") + "ダミー", "Dummy_" + side,
+            node.Position, handIndex, true);
+        bones[control].UseLocalAxis = true;
+        bones[control].LocalAxisVal = new Bone.LocalAxis { AxisX = node.Right, AxisZ = node.Forward };
+        bones[control].ChildBoneVal = new Bone.ChildBone { Offset = node.Right * .04f };
+        int alias = AddVirtualBone(bones, "ダミー." + side, "LegacyDummy_" + side, node.Position, control, false);
+        bones[alias].Visible = false; bones[alias].Controllable = false;
+        bones[alias].ChildBoneVal = new Bone.ChildBone { Offset = node.Right * .04f };
     }
 
-    private static Bone CreateTransformBone(Transform transform, Transform coordinateRoot, int parentIndex)
+    private static void AddForefootControl(List<Bone> bones, Dictionary<Transform, int> indexes,
+        PMXBoneProfile profile, string side)
     {
-        string mappedName;
-        BoneNameMapping.TryGetValue(transform.name, out mappedName);
-        return new Bone
-        {
-            Name = mappedName ?? transform.name,
-            NameEn = transform.name,
-            Position = coordinateRoot.InverseTransformPoint(transform.position),
-            ParentIndex = parentIndex,
-            TransformLevel = 0,
-            Rotatable = true,
-            Movable = false,
-            Visible = true,
-            Controllable = true,
-            ChildBoneVal = new Bone.ChildBone { ChildUseId = false, Offset = Vector3.up * 0.1f }
-        };
+        var toe = profile.Find("Toe_" + side); var deform = profile.Find("Toe_offset_" + side);
+        if (toe == null || deform == null || !indexes.TryGetValue(toe, out int toeIndex) ||
+            !indexes.TryGetValue(deform, out int deformIndex)) return;
+        // Separate the IK endpoint from the editable forefoot. The native toe
+        // offset keeps its weights and pivot, including existing EX motions.
+        int control = AddVirtualBone(bones, (side == "L" ? "左" : "右") + "足先EX",
+            "Forefoot_" + side, bones[deformIndex].Position, toeIndex, false);
+        bones[control].ChildBoneVal = new Bone.ChildBone { Offset = Vector3.up * .04f };
+        bones[deformIndex].ParentIndex = control;
     }
 
     private static int AddVirtualBone(List<Bone> bones, string name, string nameEn, Vector3 position, int parent, bool movable)
     {
-        bones.Add(new Bone
-        {
-            Name = name,
-            NameEn = nameEn,
-            Position = position,
-            ParentIndex = parent,
-            TransformLevel = 0,
-            Rotatable = true,
-            Movable = movable,
-            Visible = true,
-            Controllable = true,
-            ChildBoneVal = new Bone.ChildBone { ChildUseId = false, Offset = Vector3.up * 0.1f }
-        });
+        bones.Add(new Bone { Name = name, NameEn = nameEn, Position = position, ParentIndex = parent,
+            Rotatable = true, Movable = movable, Visible = true, Controllable = true,
+            ChildBoneVal = new Bone.ChildBone { Offset = Vector3.up * .04f } });
         return bones.Count - 1;
     }
 
-    private static void RebuildChildLinks(List<Bone> bones)
+    private static Transform Find(IEnumerable<Transform> sources, string name) =>
+        sources.FirstOrDefault(t => t.name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+    private static void AllocateNames(List<Bone> bones)
     {
-        for (int i = 0; i < bones.Count; i++)
+        string[] names = AllocateUniqueNames(bones.Select(bone => bone.Name).ToArray());
+        string[] english = AllocateUniqueNames(bones.Select(bone => bone.NameEn).ToArray());
+        for (int index = 0; index < bones.Count; index++)
         {
-            int child = bones.FindIndex(b => b.ParentIndex == i);
-            if (child >= 0)
-            {
-                bones[i].ChildBoneVal.ChildUseId = true;
-                bones[i].ChildBoneVal.Index = child;
-            }
-            else
-            {
-                bones[i].ChildBoneVal.ChildUseId = false;
-                bones[i].ChildBoneVal.Offset = Vector3.up * 0.1f;
-            }
+            bones[index].Name = names[index];
+            bones[index].NameEn = english[index];
         }
     }
 
-    private static void ReparentTongueChain(List<Bone> bones, Dictionary<Transform, int> indexes)
+    private static string[] AllocateUniqueNames(string[] names)
     {
-        // 保留原导出器的舌骨兼容关系，避免拆分骨架模块后出现既有功能回退。
-        Transform chin = Find(indexes.Keys, "Chin") ?? indexes.Keys.FirstOrDefault(t => t.name.StartsWith("Jaw"));
-        Transform tongue = Find(indexes.Keys, "Tongue");
-        Transform tongueOut01 = Find(indexes.Keys, "Tongue_Out_01");
-        Transform tongueOut02 = Find(indexes.Keys, "Tongue_Out_02");
-        if (chin == null) return;
-
-        if (tongue != null)
+        var reserved = new HashSet<string>(names, StringComparer.Ordinal);
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        for (int index = 0; index < names.Length; index++)
         {
-            bones[indexes[tongue]].ParentIndex = indexes[chin];
-            if (tongueOut01 != null) bones[indexes[tongueOut01]].ParentIndex = indexes[tongue];
-            if (tongueOut01 != null && tongueOut02 != null) bones[indexes[tongueOut02]].ParentIndex = indexes[tongueOut01];
-            return;
+            string name = names[index];
+            if (used.Add(name)) continue;
+            int suffix = 2;
+            string candidate;
+            do { candidate = name + "_" + suffix++; }
+            while (reserved.Contains(candidate) || !used.Add(candidate));
+            names[index] = candidate;
         }
-
-        foreach (Transform candidate in indexes.Keys.Where(t => t.name.StartsWith("Tongue") && !t.name.Contains("Out")))
-        {
-            bones[indexes[candidate]].ParentIndex = indexes[chin];
-        }
+        return names;
     }
 
     private static void AddFootIk(List<Bone> bones, Dictionary<Transform, int> indexes,
@@ -511,17 +312,106 @@ internal static class PMXBoneExporter
         };
 
         if (toe == null) return;
+        // Keep the native Ankle_offset -> Toe deformation chain intact. MMD's
+        // toe IK instead needs an unweighted endpoint directly under the ankle.
+        int tip = AddVirtualBone(bones, prefix + "つま先IK先", "ToeIKTarget_" + side,
+            coordinateRoot.InverseTransformPoint(toe.position), indexes[ankle], false);
+        bones[tip].Visible = false; bones[tip].Controllable = false;
         int toeIk = AddVirtualBone(bones, prefix + "つま先ＩＫ", "ToeIK_" + side,
             coordinateRoot.InverseTransformPoint(toe.position), footIk, true);
         bones[toeIk].HasIk = true;
         bones[toeIk].TransformLevel = 1;
         bones[toeIk].IkInfoVal = new Bone.IkInfo
         {
-            IkTargetIndex = indexes[toe],
+            IkTargetIndex = tip,
             CcdIterateLimit = 3,
             CcdAngleLimit = 1.0f,
             IkLinks = new[] { new Bone.IkLink { LinkIndex = indexes[ankle], HasLimit = false } }
         };
+    }
+
+    private static void SortByDependencies(List<Bone> bones, Dictionary<Transform, int> indexes)
+    {
+        // IK updates its links and endpoint, but MMD/PMXEditor do not recursively
+        // reevaluate their other descendants as Blender does. Those descendants
+        // must run after the solver or weighted offset bones keep the FK pose.
+        var ikDependencies = new List<int>[bones.Count];
+        for (int solver = 0; solver < bones.Count; solver++)
+        {
+            Bone ik = bones[solver];
+            if (!ik.HasIk) continue;
+            var prerequisites = new HashSet<int>();
+            void IncludeAncestors(int index)
+            {
+                for (; index >= 0 && prerequisites.Add(index); index = bones[index].ParentIndex) { }
+            }
+            IncludeAncestors(solver);
+            IncludeAncestors(ik.IkInfoVal.IkTargetIndex);
+            foreach (var link in ik.IkInfoVal.IkLinks) IncludeAncestors(link.LinkIndex);
+            var links = new HashSet<int>(ik.IkInfoVal.IkLinks.Select(link => link.LinkIndex));
+            for (int index = 0; index < bones.Count; index++)
+            {
+                // The solver still needs its target and chain before it can run.
+                if (prerequisites.Contains(index)) continue;
+                for (int parent = bones[index].ParentIndex; parent >= 0; parent = bones[parent].ParentIndex)
+                {
+                    if (!links.Contains(parent)) continue;
+                    if (ikDependencies[index] == null) ikDependencies[index] = new List<int>();
+                    ikDependencies[index].Add(solver);
+                    break;
+                }
+            }
+        }
+
+        var order = new List<int>(bones.Count);
+        var state = new byte[bones.Count];
+        Action<int> visit = null;
+        visit = index =>
+        {
+            if (index < 0 || state[index] == 2) return;
+            if (state[index] == 1) throw new InvalidOperationException("PMX bone dependency cycle: " + bones[index].Name);
+            state[index] = 1;
+            Bone bone = bones[index];
+            visit(bone.ParentIndex);
+            if (bone.ParentIndex >= 0)
+                bone.TransformLevel = Math.Max(bone.TransformLevel, bones[bone.ParentIndex].TransformLevel);
+            if (bone.AppendRotate || bone.AppendTranslate)
+            {
+                visit(bone.AppendBoneVal.Index);
+                bone.TransformLevel = Math.Max(bone.TransformLevel, bones[bone.AppendBoneVal.Index].TransformLevel);
+            }
+            if (ikDependencies[index] != null)
+                foreach (int solver in ikDependencies[index])
+                {
+                    visit(solver);
+                    bone.TransformLevel = Math.Max(bone.TransformLevel, bones[solver].TransformLevel);
+                }
+            if (bone.HasIk)
+            {
+                visit(bone.IkInfoVal.IkTargetIndex);
+                foreach (var link in bone.IkInfoVal.IkLinks) visit(link.LinkIndex);
+            }
+            state[index] = 2;
+            order.Add(index);
+        };
+        for (int i = 0; i < bones.Count; i++) visit(i);
+
+        var remap = new int[bones.Count];
+        for (int i = 0; i < order.Count; i++) remap[order[i]] = i;
+        Bone[] sorted = order.Select(i => bones[i]).ToArray();
+        foreach (Bone bone in sorted)
+        {
+            if (bone.ParentIndex >= 0) bone.ParentIndex = remap[bone.ParentIndex];
+            if (bone.ChildBoneVal.ChildUseId && bone.ChildBoneVal.Index >= 0)
+                bone.ChildBoneVal.Index = remap[bone.ChildBoneVal.Index];
+            if (bone.AppendRotate || bone.AppendTranslate) bone.AppendBoneVal.Index = remap[bone.AppendBoneVal.Index];
+            if (!bone.HasIk) continue;
+            bone.IkInfoVal.IkTargetIndex = remap[bone.IkInfoVal.IkTargetIndex];
+            foreach (var link in bone.IkInfoVal.IkLinks) link.LinkIndex = remap[link.LinkIndex];
+        }
+        foreach (Transform transform in indexes.Keys.ToArray()) indexes[transform] = remap[indexes[transform]];
+        bones.Clear();
+        bones.AddRange(sorted);
     }
 
     private static void Validate(List<Bone> bones)

@@ -179,6 +179,7 @@ public class BillboardBuilder : MonoBehaviour
                     for (int j = 0; j < sphereMesh.vertexCount; j++)
                         finalBoneWeights.Add(bw);
 
+                    Object.DestroyImmediate(sphereMesh);
                     sphereCount++;
                 }
 
@@ -220,7 +221,8 @@ public class BillboardBuilder : MonoBehaviour
         {
             if (s.name.Equals("BoundSpheres"))
             {
-                GameObject.Destroy(s.gameObject);
+                Object.DestroyImmediate(s.sharedMesh);
+                Object.DestroyImmediate(s.gameObject);
             }
         }
     }

@@ -780,6 +780,9 @@ public class UmaViewerBuilder : MonoBehaviour
 
         umaContainer.MergeModel();
         umaContainer.Position = umaContainer.transform.Find("Position");
+        // Record the assembled Mini rest pose before its idle animation starts.
+        // Export can restore it without changing the preview's animation state.
+        umaContainer.CaptureInitialBodyPose();
         if (!viewer)
             return;
         var matList = new List<MeshRenderer>(umaContainer.GetComponentsInChildren<MeshRenderer>());

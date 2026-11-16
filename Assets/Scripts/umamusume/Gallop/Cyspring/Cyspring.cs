@@ -57,6 +57,7 @@ namespace Gallop
         public bool IsDeltaTimeZero => _isDeltaTimeZero;
         public RootParentWork ParentWork { get => _rootParentWork; set => _rootParentWork = value; }
         public CySpringRootBone[] RootBoneArray => _rootBoneArray;
+        internal IReadOnlyList<NativeClothCollision> NativeCollisionInputs => _nativeCollisionArray ?? Array.Empty<NativeClothCollision>();
         public GameObject RootObject => _rootObject;
         public Transform RootTransform => _rootTransform;
         public bool IsForceDisableHipMoveParam { get => _isForceDisableHipMoveParam; set => _isForceDisableHipMoveParam = value; }
