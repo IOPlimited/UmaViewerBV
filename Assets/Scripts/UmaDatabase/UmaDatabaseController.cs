@@ -62,6 +62,7 @@ public partial class UmaDatabaseController
     public List<DataRow> CharaData;
     public List<DataRow> MobCharaData;
     public List<FaceTypeData> FaceTypeData;
+    public List<MiniFaceTypeData> MiniFaceTypeData;
     public List<DataRow> LiveData;
     public string ReadLiveAuthor(int musicId)
         => ReadLiveTitleText(17, musicId);
@@ -182,6 +183,7 @@ public partial class UmaDatabaseController
             CharaData = ReadCharaMaster(masterDb);
             MobCharaData = ReadMobCharaMaster(masterDb);
             FaceTypeData = ReadFaceTypeData(masterDb);
+            MiniFaceTypeData = ReadMiniFaceTypeData(masterDb);
             LiveData = ReadAllLiveData(masterDb);
             DressData = ReadAllDressData(masterDb);
             JukeboxMusicData = new Gallop.MasterJukeboxMusicData(masterDb);
@@ -584,6 +586,18 @@ public partial class UmaDatabaseController
             data.Add(entry);
         }
         return data;
+    }
+
+    static List<MiniFaceTypeData> ReadMiniFaceTypeData(SqliteConnection conn)
+    {
+        var result = new List<MiniFaceTypeData>();
+        using var command = conn.CreateCommand();
+        command.CommandText = "SELECT label,eyebrow_l,eyebrow_r,eye_l,eye_r,mouth,cheek FROM mini_face_type_data";
+        using var reader = command.ExecuteReader();
+        while (reader.Read()) result.Add(new MiniFaceTypeData {
+            label = reader.GetString(0), eyebrow_l = reader.GetInt32(1), eyebrow_r = reader.GetInt32(2),
+            eye_l = reader.GetInt32(3), eye_r = reader.GetInt32(4), mouth = reader.GetInt32(5), cheek = reader.GetInt32(6) });
+        return result;
     }
 
     static List<DataRow> ReadAllLiveData(SqliteConnection conn)

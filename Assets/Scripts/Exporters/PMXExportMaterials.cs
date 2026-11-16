@@ -15,6 +15,7 @@ internal sealed class PMXExportMaterials : IDisposable
     private readonly Material bake;
     internal readonly List<Rect> UvRects = new List<Rect>();
     private readonly Dictionary<Texture2D,string> raw = new Dictionary<Texture2D,string>();
+    private readonly Dictionary<string,string> names = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
 
     internal PMXExportMaterials(string directory)
     {
@@ -25,7 +26,8 @@ internal sealed class PMXExportMaterials : IDisposable
     }
 
     internal MMDMaterial Convert(Renderer renderer, int submesh, Material source, RawMMDModel model,
-        bool cheek = false, bool manga = false, bool tear = false, int facialSurface = 0, Color? faceShadeColor = null)
+        bool cheek = false, bool manga = false, bool tear = false, int facialSurface = 0, Color? faceShadeColor = null,
+        string textureVariant = null)
     {
         Mesh original = PMXGeometryExporter.MeshOf(renderer);
         Mesh readable = original.isReadable ? original : ModelExporter.MakeReadableMeshCopy(original);
@@ -41,6 +43,9 @@ internal sealed class PMXExportMaterials : IDisposable
                         Mathf.Max(rect.xMax, uv[index].x), Mathf.Max(rect.yMax, uv[index].y));
             UvRects.Add(rect);
             string shaderName = source.shader.name;
+            var character = renderer.GetComponentInParent<UmaContainerCharacter>();
+            bool miniCheek = character != null && character.IsMini && renderer.name == "M_Cheek";
+            cheek |= miniCheek;
             bool eye = shaderName.Contains("ToonEye/");
             bool faceLine = facialSurface == 3;
             // ToonFace declares the same packed-mask properties as body/hair,
@@ -51,7 +56,7 @@ internal sealed class PMXExportMaterials : IDisposable
             string mainProperty = source.shader.FindPropertyIndex("_BaseMap")>=0 ? "_BaseMap" : "_MainTex";
             Texture2D main = Texture(source, mainProperty) ?? Texture2D.whiteTexture;
             Configure(source, mainProperty, rect, eye, packed, cutout, facialSurface != 0 || !transparent && !cutout);
-            bool multiplyCheek = cheek && (shaderName.Contains("MultiplyCheek") || source.HasProperty("_CheekRate"));
+            bool multiplyCheek = cheek && (miniCheek || shaderName.Contains("MultiplyCheek") || source.HasProperty("_CheekRate"));
             bake.SetFloat("_CheekMode", multiplyCheek ? 1 : 0);
             bake.SetFloat("_CheekSaturation", Float(source, "_Saturation", 1));
             bake.SetFloat("_NoEyeHighlight", facialSurface == 1 ? 1 : 0);
@@ -91,7 +96,10 @@ internal sealed class PMXExportMaterials : IDisposable
             Texture2D image = eye || facialSurface == 2 ? Raster(posed ?? readable, submesh, width, height)
                 : TextureExporter.ReadTexture(main, width, height, bake);
             string path;
-            try { path = Save(image); }
+            string variant = facialSurface == 1 ? "_highlight_off" : facialSurface == 2
+                ? faceShadeColor.HasValue ? "_shade_black" : "_shade_blue" : faceLine ? "_face_line" : multiplyCheek ? "_alpha" : "";
+            variant += textureVariant;
+            try { path = Save(image, main.name + variant); }
             finally { UnityEngine.Object.DestroyImmediate(image); }
 
             var metadata = new JObject { ["schema"] = "UmaViewer.Material/1", ["baseColor"] = path,
@@ -123,7 +131,7 @@ internal sealed class PMXExportMaterials : IDisposable
                     bake.SetColor("_MaskColor"+channel, ColorValue(source,"_MaskToonColor"+channel,Color.white));
                 var shadow = facialSurface == 2 ? Raster(posed ?? readable, submesh, width, height)
                     : TextureExporter.ReadTexture(shade, width, height, bake);
-                try { metadata["shadowColor"] = Save(shadow); }
+                try { metadata["shadowColor"] = Save(shadow, shade.name + variant); }
                 finally { UnityEngine.Object.DestroyImmediate(shadow); }
             }
             var extras = new JObject();
@@ -243,18 +251,12 @@ internal sealed class PMXExportMaterials : IDisposable
 
     private void CopyArray(Material source,string name,Vector4[] fallback)
     { Vector4[] values=source.GetVectorArray(name); bake.SetVectorArray(name,values!=null&&values.Length==fallback.Length?values:fallback); }
-    private string Save(Texture2D image)
-    {
-        if (directory != null) return TextureExporter.WritePng(directory,image);
-        // In-memory model construction still uses content identity.
-        using (var hash=System.Security.Cryptography.SHA256.Create())
-            return "Texture2D/"+BitConverter.ToString(hash.ComputeHash(image.EncodeToPNG())).Replace("-","").ToLowerInvariant()+".png";
-    }
+    private string Save(Texture2D image, string name) => TextureExporter.WritePng(directory,image,name,names);
     private string SaveRaw(Texture2D texture)
     {
         if(raw.TryGetValue(texture,out string path))return path;
         var copy=TextureExporter.duplicateTexture(texture);
-        try { path=Save(copy);raw.Add(texture,path);return path; }
+        try { path=Save(copy,texture.name);raw.Add(texture,path);return path; }
         finally { UnityEngine.Object.DestroyImmediate(copy); }
     }
     internal static MMDTexture AddTexture(RawMMDModel model,string path)

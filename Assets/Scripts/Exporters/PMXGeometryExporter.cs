@@ -20,6 +20,21 @@ internal static class PMXGeometryExporter
         ref List<int> triangles, Transform root)
     {
         var result = new List<Vertex>();
+        Vector3[] facePositions = null, faceNormals = null;
+        var character = root.GetComponent<UmaContainerCharacter>();
+        if (character != null && character.IsMini &&
+            renderers.FirstOrDefault(r => r.name == "M_Face") is SkinnedMeshRenderer face)
+        {
+            var posedFace = new Mesh();
+            try
+            {
+                face.BakeMesh(posedFace, false);
+                Matrix4x4 matrix = root.worldToLocalMatrix * face.localToWorldMatrix;
+                facePositions = posedFace.vertices.Select(matrix.MultiplyPoint3x4).ToArray();
+                faceNormals = posedFace.normals.Select(n => matrix.inverse.transpose.MultiplyVector(n).normalized).ToArray();
+            }
+            finally { UnityEngine.Object.DestroyImmediate(posedFace); }
+        }
         foreach (Renderer renderer in renderers)
         {
             Mesh source = MeshOf(renderer);
@@ -46,7 +61,12 @@ internal static class PMXGeometryExporter
                     result.Add(new Vertex
                     {
                         Coordinate = toRoot.MultiplyPoint3x4(positions[i]),
-                        Normal = normalMatrix.MultiplyVector(normals.Length == positions.Length ? normals[i] : Vector3.up).normalized,
+                        // The mini mouth is an unlit skin patch with inward
+                        // pouch normals. In PMX those normals introduce a false
+                        // dent. Match the surrounding face's lighting instead.
+                        Normal = renderer.name == "M_Mouth" && facePositions != null
+                            ? FaceNormal(toRoot.MultiplyPoint3x4(positions[i]), facePositions, faceNormals)
+                            : normalMatrix.MultiplyVector(normals.Length == positions.Length ? normals[i] : Vector3.up).normalized,
                         UvCoordinate = uv.Length == positions.Length ? Flip(uv[i]) : Vector2.zero,
                         ExtraUvCoordinate = new Vector4[] {
                             uv1.Length == positions.Length ? (Vector4)Flip(uv1[i]) : Vector4.zero,
@@ -78,6 +98,26 @@ internal static class PMXGeometryExporter
     }
 
     private static Vector2 Flip(Vector2 uv) => new Vector2(uv.x, 1f - uv.y);
+
+    private static Vector3 FaceNormal(Vector3 position, Vector3[] positions, Vector3[] normals)
+    {
+        var closest = new int[3] { -1, -1, -1 };
+        var distances = new float[3] { float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity };
+        for (int i = 0; i < positions.Length; i++)
+        {
+            float distance = (positions[i] - position).sqrMagnitude;
+            for (int j = 0; j < 3; j++)
+            {
+                if (distance >= distances[j]) continue;
+                for (int k = 2; k > j; k--) { distances[k] = distances[k - 1]; closest[k] = closest[k - 1]; }
+                distances[j] = distance; closest[j] = i; break;
+            }
+        }
+        Vector3 normal = Vector3.zero;
+        for (int i = 0; i < 3; i++)
+            if (closest[i] >= 0) normal += normals[closest[i]] / Mathf.Max(distances[i], 1e-12f);
+        return normal.normalized;
+    }
 
     private static SkinningOperator[] ReadWeights(Renderer renderer, Mesh mesh, Dictionary<Transform, int> bones)
     {

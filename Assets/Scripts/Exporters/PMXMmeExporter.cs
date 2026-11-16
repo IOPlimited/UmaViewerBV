@@ -7,7 +7,7 @@ using System.Text;
 using LibMMD.Model;
 using Newtonsoft.Json.Linq;
 
-/// <summary>Writes an MME object effect from the same material description as the PMX package.</summary>
+/// <summary>Writes MME effects only for native animated emissive textures.</summary>
 internal static class PMXMmeExporter
 {
     private static string F(float value) => value.ToString("R",CultureInfo.InvariantCulture);
@@ -19,10 +19,15 @@ internal static class PMXMmeExporter
     {
         string directory=Path.GetDirectoryName(path);
         string effectDirectory=Path.Combine(directory,"MME");
-        Directory.CreateDirectory(effectDirectory);
+        RemovePreviousExport(path,effectDirectory);
         var assignments=new StringBuilder("[Info]\r\nVersion = 3\r\n\r\n[Effect]\r\nObj = none\r\nObj.show = true\r\n");
+        int count=0;
         for(int index=0;index<model.Parts.Length;index++)
         {
+            var material=model.Parts[index].Material;var description=JObject.Parse(material.MetaInfo);
+            var effects=description["effects"] as JObject??new JObject();
+            JObject animation=(description["animation"] as JArray)?.OfType<JObject>().FirstOrDefault(x=>(string)x["type"]=="UVScrollEmissive");
+            if(effects["_UVEmissiveTex"]?["texture"]==null || animation==null)continue;
         // A separately assigned effect has one material and one technique per
         // pass. PmxView's per-material draw path selects subset zero even for
         // later materials, so a model-wide effect with Subset routing is unsafe.
@@ -46,12 +51,10 @@ VSOutput VS(VSInput input) {
 float Bezier(float a,float b,float c,float d,float t) { float s=1-t; return s*s*s*a+3*s*s*t*b+3*s*t*t*c+t*t*t*d; }
 
 ");
-            var material=model.Parts[index].Material;var description=JObject.Parse(material.MetaInfo);
             bool cheek=(string)description["expression"]=="multiplyCheek";
             bool manga=(string)description["expression"]=="nativeManga";
             bool tear=(string)description["expression"]=="nativeStaticTear";
             bool faceLine=(string)description["expression"]=="nativeFaceLine";
-            var effects=description["effects"] as JObject??new JObject();
             string stem="m"+index;
             bool shadow=description["shadowColor"]!=null;
             if(shadow)Texture(fx,stem+"Shadow",(string)description["shadowColor"],false);
@@ -61,7 +64,6 @@ float Bezier(float a,float b,float c,float d,float t) { float s=1-t; return s*s*
             if(dynamic)Texture(fx,stem+"Dynamic",(string)effects["_UVEmissiveTex"]["texture"],true);
             if(mask)Texture(fx,stem+"Mask",(string)effects["_UVEmissiveMaskTex"]["texture"],false);
             if(emission)Texture(fx,stem+"Emission",(string)effects["_EmissiveTex"]["texture"],false);
-            JObject animation=(description["animation"] as JArray)?.OfType<JObject>().FirstOrDefault(x=>(string)x["type"]=="UVScrollEmissive");
             string[] animated=new string[3];
             for(int axis=0;axis<3;axis++)animated[axis]=Animated(fx,stem+"Axis"+axis,animation,axis,
                 axis<2?Number(effects["_UVEmissiveScroll"]?[axis]):Number(effects["_UVEmissivePower"],1));
@@ -109,15 +111,39 @@ float Bezier(float a,float b,float c,float d,float t) { float s=1-t; return s*s*
             string content=fx.ToString();
             string filename;
             using(var hash=SHA256.Create())filename=BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(content))).Replace("-","").ToLowerInvariant()+".fx";
+            Directory.CreateDirectory(effectDirectory);
             File.WriteAllText(Path.Combine(effectDirectory,filename),content,new UTF8Encoding(false));
             assignments.AppendLine("Obj["+index+"] = MME/"+filename);
             assignments.AppendLine("Obj["+index+"].show = true");
+            count++;
         }
-        File.WriteAllText(Path.ChangeExtension(path,"emd"),assignments.ToString(),new UTF8Encoding(false));
+        if(count>0)File.WriteAllText(Path.ChangeExtension(path,"emd"),assignments.ToString(),new UTF8Encoding(false));
         // Migrate the generated model-wide effect from earlier exports. A
         // user's independently authored effect is left in place.
         string previous=Path.ChangeExtension(path,"fx");
         if(File.Exists(previous) && File.ReadLines(previous).FirstOrDefault()=="// UmaViewer material effect. Time is the MMD timeline in seconds.")File.Delete(previous);
+    }
+
+    private static void RemovePreviousExport(string path,string effectDirectory)
+    {
+        // Re-exporting a static model must not leave its old auto-assignment
+        // active. Remove only our generated effects, retaining shared effects
+        // referenced by another model and any user-authored files.
+        string assignment=Path.ChangeExtension(path,"emd");
+        if(!File.Exists(assignment))return;
+        string text=File.ReadAllText(assignment);
+        if(!text.StartsWith("[Info]\r\nVersion = 3\r\n\r\n[Effect]\r\nObj = none\r\nObj.show = true\r\n",StringComparison.Ordinal))return;
+        var names=System.Text.RegularExpressions.Regex.Matches(text,@"(?m)^Obj\[\d+\] = MME/([0-9a-f]{64}\.fx)\r?$")
+            .Cast<System.Text.RegularExpressions.Match>().Select(m=>m.Groups[1].Value).Distinct().ToArray();
+        if(System.Text.RegularExpressions.Regex.Matches(text,@"(?m)^Obj\[\d+\] = (.+?)\r?$")
+            .Cast<System.Text.RegularExpressions.Match>().Any(m=>!names.Any(name=>m.Groups[1].Value=="MME/"+name)))return;
+        if(names.Length==0 || names.Any(name=>!File.Exists(Path.Combine(effectDirectory,name)) ||
+            File.ReadLines(Path.Combine(effectDirectory,name)).FirstOrDefault()!="// UmaViewer material effect. Time is the MMD timeline in seconds."))return;
+        File.Delete(assignment);
+        var otherAssignments=Directory.GetFiles(Path.GetDirectoryName(path),"*.emd").Select(File.ReadAllText).ToArray();
+        foreach(string name in names)
+            if(!otherAssignments.Any(other=>other.Contains("MME/"+name)))File.Delete(Path.Combine(effectDirectory,name));
+        if(!Directory.EnumerateFileSystemEntries(effectDirectory).Any())Directory.Delete(effectDirectory);
     }
 
     private static void Texture(StringBuilder fx,string name,string path,bool repeat)

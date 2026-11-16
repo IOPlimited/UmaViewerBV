@@ -141,6 +141,17 @@ public class ModelExporter
         // 从实际蒙皮、物理与标准角色收集骨骼，再补齐原生父链。
         var rootBone = PMXExportOptions.SkeletonRoot(container);
         List<Renderer> renderers = PMXGeometryExporter.Collect(container.gameObject);
+        using var miniExpressions = options.OrganizeBones && container is UmaContainerCharacter miniActor && miniActor.IsMini
+            ? new PMXMiniExpressionExporter(miniActor) : null;
+        miniExpressions?.IncludeRenderers(renderers);
+        if (container is UmaContainerCharacter mini && mini.IsMini)
+        {
+            // Unity draws the mini's multiply cheek after its opaque face by
+            // render queue. PMX follows material order, so keep that ordering.
+            var miniCheeks = renderers.FindAll(r => r.name == "M_Cheek");
+            renderers.RemoveAll(r => r.name == "M_Cheek");
+            renderers.AddRange(miniCheeks);
+        }
         var manga = options.OrganizeBones ? PMXMangaExporter.Prepare(container as UmaContainerCharacter) : null;
         var faceMaterials = options.OrganizeBones ? PMXFaceMaterialExporter.Prepare(container as UmaContainerCharacter) : null;
         manga?.RemoveSourceRenderers(renderers);
@@ -181,7 +192,7 @@ public class ModelExporter
             model.TextureList.Add(new MMDTexture(texture));
         }
 
-        model.Parts = ReadPartMaterials(renderers, model, materials, out var sourceMaterials, cheek, manga, faceMaterials);
+        model.Parts = ReadPartMaterials(renderers, model, materials, out var sourceMaterials, cheek, manga, faceMaterials, miniExpressions);
         model.Bones = boneResult.Bones;
         if (options.OrganizeBones) PMXBoneDisplay.AddDisplayFrames(model);
         model.Morphs = ReadMorph(renderers, container.transform);
@@ -204,7 +215,10 @@ public class ModelExporter
             model.Entrys.Add(expressions);
         }
         PMXUvExporter.Apply(model, materials.UvRects);
+        miniExpressions?.Add(model, materials, sourceMaterials);
+        if(options.OrganizeBones)PMXNativeExpressionExporter.AddNormal(model,container as UmaContainerCharacter);
         PMXMaterialExporter.Merge(model, sourceMaterials);
+        if(options.OrganizeBones)PMXNativeExpressionExporter.RefreshDisplay(model);
         if (options.GenerateRigidBodies && physicsContext != null)
         {
             PMXPhysicsExporter.Build(physicsContext, container.transform, boneResult, model);
@@ -759,7 +773,7 @@ public class ModelExporter
 
     private static Part[] ReadPartMaterials(List<Renderer> renderers, RawMMDModel model, PMXExportMaterials exportMaterials,
         out List<Material> sourceMaterials, PMXCheekExporter cheek = null, PMXMangaExporter manga = null,
-        PMXFaceMaterialExporter faceMaterials = null)
+        PMXFaceMaterialExporter faceMaterials = null, PMXMiniExpressionExporter miniExpressions = null)
     {
         List<Part> parts = new List<Part>();
         sourceMaterials = new List<Material>();
@@ -786,8 +800,10 @@ public class ModelExporter
                 bool isManga = manga != null && manga.Contains(renderer);
                 bool isTear = faceMaterials != null && faceMaterials.IsTear(renderer);
                 if (isCheek) material = cheek.Material;
+                if (miniExpressions != null) material = miniExpressions.MaterialFor(renderer, i, material);
                 var part = new Part();
                 part.Material = exportMaterials.Convert(renderer, i, material, model, isCheek, isManga, isTear);
+                miniExpressions?.Record(renderer, i, parts.Count, material);
                 if (isCheek) cheek.MaterialIndexes.Add(parts.Count);
                 if (isManga) manga.RecordMaterial(renderer, parts.Count);
                 faceMaterials?.Record(renderer, i, material, parts.Count);
