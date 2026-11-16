@@ -70,7 +70,7 @@ public class ModelExporter
             {
                 var config = new ModelConfig() { GlobalToonPath = "Toon" };
                 PMXWriter.Write(writer, model, config);
-                PMXExportManifest.Write(path, model);
+                PMXMmeExporter.Write(path, model);
             }
         }
         finally
@@ -104,7 +104,7 @@ public class ModelExporter
         var config = new ModelConfig() { GlobalToonPath = "Toon" };
         PMXWriter.Write(writer, model, config);
 
-        PMXExportManifest.Write(path, model);
+        PMXMmeExporter.Write(path, model);
         writer.Close();
         fileStream.Close();
 
