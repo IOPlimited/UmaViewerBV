@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - il2cppsrc
     tags:
       - "v*"
 
@@ -58,6 +59,9 @@ jobs:
           restore-keys: |
             Library-Android-
 
+      - name: Build Android ARM64 CySpring kernel
+        run: python3 Native/UmaSpringNative/build_android.py
+
       - name: Build Android APK
         uses: game-ci/unity-builder@v4
         env:
@@ -82,6 +86,10 @@ jobs:
           buildsPath: build
           # Only the file name belongs here; its contents come from the env above.
           androidKeystoreName: uma-release.keystore
+          # Unity strips the native plugins under Assets/Plugins/Android/libs during the
+          # Android build, which leaves the worktree dirty and makes game-ci refuse to run
+          # ("Branch is dirty. Refusing to base semantic version on uncommitted changes").
+          allowDirtyBuild: true
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
@@ -90,6 +98,44 @@ jobs:
           path: build/Android/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      # Android 和 Windows 两个 job 并行跑，谁先跑完谁建 release，另一个补传自己的产物。
+      # 直接 create 会和对方撞车（422 already_exists），所以失败就等一会儿再看。
+      - name: Publish Android to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != '' && inputs.release_tag || github.ref_name }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          apk=$(ls build/Android/*.apk | head -1)
+          cp "$apk" UmaViewer-Android.apk
+          echo "apk: $apk -> UmaViewer-Android.apk ($(stat -c%s UmaViewer-Android.apk) bytes)"
+
+          for attempt in $(seq 1 40); do
+            if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+              gh release upload "$RELEASE_TAG" UmaViewer-Android.apk --clobber
+              echo "uploaded Android apk to existing release $RELEASE_TAG"
+              exit 0
+            fi
+
+            if gh release create "$RELEASE_TAG" \
+                 "UmaViewer-Android.apk#UmaViewer Android (IL2CPP)" \
+                 --target "$TARGET_SHA" \
+                 --title "UmaViewer $RELEASE_TAG" \
+                 --generate-notes; then
+              echo "created release $RELEASE_TAG with Android apk"
+              exit 0
+            fi
+
+            echo "release not ready yet (attempt $attempt), retrying in 15s"
+            sleep 15
+          done
+
+          echo "::error::gave up waiting for release $RELEASE_TAG"
+          exit 1
 
   build:
     name: Windows x64 IL2CPP
@@ -173,7 +219,9 @@ jobs:
         uses: game-ci/unity-builder@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+          # UNITY_SERIAL 会强制走在线激活，而 windows 容器里没有 LicenseClient 服务，
+          # 报 "Channel LicenseClient-ContainerAdministrator doesn't exist"。只给 .ulf 让它离线激活。
+          # UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:

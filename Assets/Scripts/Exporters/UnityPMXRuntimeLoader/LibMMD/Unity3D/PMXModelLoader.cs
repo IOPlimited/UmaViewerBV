@@ -44,7 +44,7 @@ public class PMXModelLoader
 #endif
 
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             UnityEngine.Debug.Log("アバターの作成に失敗しました");
             UnityEngine.Debug.Log(path);

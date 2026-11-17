@@ -1,0 +1,8 @@
+== dynamic01 SDF.asset ==
+  改前: mode=Dynamic glyphs=97 atlas=1 1024x1024 multi=False src=NotoSansCJKsc-Bold
+  改后: atlas=1 2048x2048 multi=True glyphs=0
+    [0] 2048x2048
+== 华文仿宋 SDF.asset ==
+  改前: mode=Dynamic glyphs=384 atlas=4 1024x1024 multi=True src=华文仿宋
+  改后: atlas=1 2048x2048 multi=True glyphs=0
+    [0] 2048x2048

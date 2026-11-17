@@ -1,0 +1,43 @@
+== TMP Settings ==
+defaultFontAsset = dynamic01 SDF (mode=Dynamic, glyphs=0)
+fallbackFontAssets = 0
+
+== Font Assets ==
+dynamic01 SDF 1.asset
+    glyphs=420  chars=421  atlas=5/8  mode=Dynamic
+    srcFont=<null>  fallbacks=0  atlasW=1024  atlasH=1024
+      [0] 1024x1024 fmt=Alpha8
+      [1] 1024x1024 fmt=Alpha8
+      [2] 1024x1024 fmt=Alpha8
+      [3] 1024x1024 fmt=Alpha8
+      [4] 1024x1024 fmt=Alpha8
+      [5] <null>
+      [6] <null>
+      [7] <null>
+dynamic01 SDF.asset
+    glyphs=0  chars=0  atlas=1/1  mode=Dynamic
+    srcFont=NotoSansCJKsc-Bold  fallbacks=1  atlasW=2048  atlasH=2048
+      [0] 2048x2048 fmt=Alpha8
+LiberationSans SDF - Fallback.asset
+    glyphs=11  chars=11  atlas=1/1  mode=Dynamic
+    srcFont=LiberationSans  fallbacks=0  atlasW=512  atlasH=512
+      [0] 512x512 fmt=Alpha8
+LiberationSans SDF.asset
+    glyphs=252  chars=252  atlas=1/1  mode=Dynamic
+    srcFont=<null>  fallbacks=2  atlasW=1024  atlasH=1024
+      [0] 1024x1024 fmt=Alpha8
+华文仿宋 SDF.asset
+    glyphs=0  chars=0  atlas=1/1  mode=Dynamic
+    srcFont=华文仿宋  fallbacks=1  atlasW=2048  atlasH=2048
+      [0] 2048x2048 fmt=Alpha8
+
+== 场景里的字体引用 ==
+LiveScene.unity: 无引用
+Version2.unity: dynamic01 SDF=122
+
+== CJK 字形覆盖检测 ==
+LiberationSans SDF: 探针缺 33/33 字 缺: 成员数语音选择复制一号位角色随机服装特别周无声铃鹿东海帝王大和赤骥
+dynamic01 SDF 1: 探针缺 16/33 字 缺: 员语音选择复制号角随服装别铃东骥
+LiberationSans SDF - Fallback: 探针缺 33/33 字 缺: 成员数语音选择复制一号位角色随机服装特别周无声铃鹿东海帝王大和赤骥
+dynamic01 SDF: 探针缺 33/33 字 缺: 成员数语音选择复制一号位角色随机服装特别周无声铃鹿东海帝王大和赤骥
+华文仿宋 SDF: 探针缺 33/33 字 缺: 成员数语音选择复制一号位角色随机服装特别周无声铃鹿东海帝王大和赤骥

@@ -1,4 +1,4 @@
-#if UNITY_STANDALONE || UNITY_EDITOR
+﻿#if UNITY_STANDALONE || UNITY_EDITOR
 using SFB;
 #endif
 
@@ -18,23 +18,20 @@ public class UISettingsModel : MonoBehaviour
 
     public ScrollRect MaterialsList;
 
-    private void Awake()
-    {
-        // El toggle de la escena puede venir marcado: se fuerza el estado inicial apagado para que
-        // el ajuste guardado en la escena no deje el seguimiento de ojos encendido al arrancar.
-        EnableEyeTracking = false;
-    }
-
     private bool
         _isHeadFix,
         _isTPose,
         _dynamicBoneEnable = true,
-        // El seguimiento de ojos arranca DESACTIVADO (los personajes del live no lo encienden por
-        // defecto; el ojo mirando a camara solo se usa cuando se pide explicitamente).
-        _enableEyeTracking = false,
+        _enableEyeTracking = true,
         _enableFaceOverride = true;
 
     private float _outlineWidth;
+
+    private void Awake()
+    {
+        // 主分支的 Export Model 按钮直接绑定 ExportModel()，这里不再给它加开关。
+        // 早期为了推 UnifiedExportPanel 会把按钮 SetActive(false)，导致功能"消失"。
+    }
 
     public bool IsHeadFix
     {
@@ -109,26 +106,9 @@ public class UISettingsModel : MonoBehaviour
     public void ExportModel()
     {
 #if UNITY_STANDALONE || UNITY_EDITOR
-        var container = Builder.CurrentUMAContainer;
-        if (container)
-        {
-            var entry = container.CharaEntry;
-            var path = StandaloneFileBrowser.SaveFilePanel("Save PMX File", Config.Instance.MainPath, $"{entry.Id}_{entry.GetName()}", "pmx");
-            if (!string.IsNullOrEmpty(path))
-            {
-                ModelExporter.ExportModel(container, path);
-            }
-        }
-
-        var prop_container = Builder.CurrentOtherContainer;
-        if (prop_container)
-        {
-            var path = StandaloneFileBrowser.SaveFilePanel("Save PMX File", Config.Instance.MainPath, $"{prop_container}", "pmx");
-            if (!string.IsNullOrEmpty(path))
-            {
-                ModelExporter.ExportModel(prop_container, path);
-            }
-        }
+        UmaContainer container = Builder.CurrentUMAContainer;
+        if (container == null) container = Builder.CurrentOtherContainer;
+        PMXExportPanel.Open(container);
 
 #else
         UmaViewerUI.Instance.ShowMessage("Not supported on this platform", UIMessageType.Warning);

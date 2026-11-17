@@ -1,0 +1,342 @@
+{
+  "schema": "UmaViewer.NativePhysicsRecipe/1",
+  "sourceDate": "2026-11-15",
+  "skirtPanels": [
+    {
+      "source": "Sp_Hi_MSkirt0_F_00",
+      "radialLegGains": [
+        2.2110431315929424,
+        2.1706729175937585
+      ],
+      "tangentLegGains": [
+        0.5448110601333835,
+        0.5688416052407355
+      ],
+      "outputPivotOffsetLocalMm": [
+        3.6943165347920526,
+        1.291404208914968,
+        18.495209975849665
+      ],
+      "radialMm": 0.0,
+      "tangentMm": 0.0,
+      "torsoFraction": 0.09028307826129661,
+      "yawRadians": -1.487420395420816E-07
+    },
+    {
+      "source": "Sp_Hi_MSkirt0_FL_00",
+      "radialLegGains": [
+        2.208057428005942,
+        2.1509608734710057
+      ],
+      "tangentLegGains": [
+        0.5948762447569559,
+        0.5444375430614626
+      ],
+      "outputPivotOffsetLocalMm": [
+        8.66843473278479,
+        0.8467978373720717,
+        17.387975977362355
+      ],
+      "radialMm": 0.0,
+      "tangentMm": 88.76270561429928,
+      "torsoFraction": 0.07513559494889917,
+      "yawRadians": -0.5235985842872118
+    },
+    {
+      "source": "Sp_Hi_MSkirt0_FR_00",
+      "radialLegGains": [
+        2.180963921976805,
+        2.2124712457078397
+      ],
+      "tangentLegGains": [
+        0.5921266888123198,
+        0.7304663141542582
+      ],
+      "outputPivotOffsetLocalMm": [
+        -7.412882147070867,
+        -1.8408519085112363,
+        13.009205859919131
+      ],
+      "radialMm": 0.0,
+      "tangentMm": 39.342453942612266,
+      "torsoFraction": 0.0906213234711121,
+      "yawRadians": 0.523594769464938
+    },
+    {
+      "source": "Sp_Hi_MSkirt0_FLL_00",
+      "radialLegGains": [
+        2.5441025094685585,
+        2.286207742825919
+      ],
+      "tangentLegGains": [
+        0.8596342971848233,
+        0.7169771125463209
+      ],
+      "outputPivotOffsetLocalMm": [
+        18.62215000284654,
+        -25.399004746610622,
+        18.31521318692596
+      ],
+      "radialMm": 0.0,
+      "tangentMm": 78.20485327195998,
+      "torsoFraction": 0.09399404827281564,
+      "yawRadians": -1.0471975023837146
+    },
+    {
+      "source": "Sp_Hi_MSkirt0_FRR_00",
+      "radialLegGains": [
+        2.470018090378295,
+        2.5861282176316673
+      ],
+      "tangentLegGains": [
+        0.829347490574893,
+        0.9073795211508924
+      ],
+      "outputPivotOffsetLocalMm": [
+        -20.680709347990756,
+        -25.914709013100513,
+        16.568523179880433
+      ],
+      "radialMm": 0.0,
+      "tangentMm": 76.61957571409167,
+      "torsoFraction": 0.13167816109820957,
+      "yawRadians": 1.047200584588555
+    },
+    {
+      "source": "Sp_Hi_MSkirt0_L_00",
+      "radialLegGains": [
+        2.357550893040742,
+        2.1595702770571488
+      ],
+      "tangentLegGains": [
+        0.8435097818138175,
+        0.6108508177395777
+      ],
+      "outputPivotOffsetLocalMm": [
+        44.66611628138039,
+        -22.859278921026316,
+        26.4076199841043
+      ],
+      "radialMm": 5.950476030355283,
+      "tangentMm": 129.79455344472737,
+      "torsoFraction": 0.13800080378981228,
+      "yawRadians": -1.652631699821997
+    },
+    {
+      "source": "Sp_Hi_MSkirt0_R_00",
+      "radialLegGains": [
+        2.120060339598181,
+        2.4736422633243818
+      ],
+      "tangentLegGains": [
+        0.9105868463740217,
+        0.7158310447066952
+      ],
+      "outputPivotOffsetLocalMm": [
+        -40.55593051352253,
+        -25.101847232034388,
+        31.869954729570207
+      ],
+      "radialMm": 16.91632350028334,
+      "tangentMm": 121.84204380184326,
+      "torsoFraction": 0.14685358951439614,
+      "yawRadians": 1.6526320510770276
+    },
+    {
+      "source": "Sp_Hi_MSkirt0_BL_00",
+      "radialLegGains": [
+        1.5323069844662232,
+        1.9946109544778392
+      ],
+      "tangentLegGains": [
+        0.6963279042448496,
+        0.3840723583869478
+      ],
+      "outputPivotOffsetLocalMm": [
+        58.00549060774905,
+        -30.443628889594045,
+        29.82780260936628
+      ],
+      "radialMm": 0.0,
+      "tangentMm": 122.30149859040992,
+      "torsoFraction": 0.13535282094417328,
+      "yawRadians": -2.3561945548136958
+    },
+    {
+      "source": "Sp_Hi_MSkirt0_BR_00",
+      "radialLegGains": [
+        1.933211510789836,
+        1.8344296744635327
+      ],
+      "tangentLegGains": [
+        0.7305341890098398,
+        1.164036805086627
+      ],
+      "outputPivotOffsetLocalMm": [
+        -24.115793070788335,
+        -60.0,
+        26.617763917780266
+      ],
+      "radialMm": 24.59389553433194,
+      "tangentMm": 28.43775642147989,
+      "torsoFraction": 0.06313528679018986,
+      "yawRadians": 2.356205574546538
+    },
+    {
+      "source": "Sp_Hi_MSkirt0_B_00",
+      "radialLegGains": [
+        1.4423512876199847,
+        1.2183904156168277
+      ],
+      "tangentLegGains": [
+        0.34930781006616335,
+        0.45458159026211403
+      ],
+      "outputPivotOffsetLocalMm": [
+        -60.0,
+        -1.6447676381755416,
+        27.134400783169465
+      ],
+      "radialMm": 0.0,
+      "tangentMm": 0.0,
+      "torsoFraction": 0.17616438376526405,
+      "yawRadians": 3.1415926243990193
+    }
+  ],
+  "tailCoefficients": [
+    {
+      "source": "Sp_Hi_Tail0_B_00",
+      "mass": 0.012416760437190533,
+      "springRotate": [
+        0.5372704863548279,
+        0.0,
+        2.1490819454193115
+      ]
+    },
+    {
+      "source": "Sp_Hi_Tail0_B_01",
+      "mass": 0.006644933484494686,
+      "springRotate": [
+        1.1228028535842896,
+        0.0,
+        4.491211414337158
+      ]
+    },
+    {
+      "source": "Sp_Hi_Tail0_B_02",
+      "mass": 0.007187412120401859,
+      "springRotate": [
+        1.906160831451416,
+        0.0,
+        7.624643325805664
+      ]
+    },
+    {
+      "source": "Sp_Hi_Tail0_B_03",
+      "mass": 0.007759256288409233,
+      "springRotate": [
+        2.123120069503784,
+        0.0,
+        8.492480278015137
+      ]
+    },
+    {
+      "source": "Sp_Hi_Tail0_B_04",
+      "mass": 0.008396586403250694,
+      "springRotate": [
+        2.4972994327545166,
+        0.0,
+        9.989197731018066
+      ]
+    }
+  ],
+  "ear": {
+    "schema": "UmaViewer.StableCySpringEarRecipe/1",
+    "massAt50mm": 0.05,
+    "distalMassRatio": 0.1,
+    "massLengthPower": 3,
+    "inertiaRadius": "native segment length in PMX units; noncolliding rotation proxy",
+    "centerOfMass": "joint pivot",
+    "angularSpring": "sphere inertia * abs(60*log(native discrete pole))^2",
+    "nativePoles": "q=1/(1+Stiffness/(20000*lengthM)), rho=1-Drag/2000; z^2-q*(1+rho)*z+q*rho",
+    "linearDamping": 1.0,
+    "angularDamping": 1.0,
+    "earsCollideWithHair": false,
+    "motionDependentGeneration": false,
+    "characterIdDependentGeneration": false,
+    "worldGravityModified": false,
+    "perBodyGravityOverride": false,
+    "accepted": false
+  },
+  "decoration": {
+    "schema": "UmaViewer.SPDecorationRecipe/1",
+    "status": "candidate-not-user-accepted",
+    "rules": {
+      "Ribbon": "disabled",
+      "Acc": "disabled",
+      "Collar": "disabled",
+      "Sleeve": "arm-follower",
+      "Jacket": "disabled",
+      "Mantle": "long-hair",
+      "Belt": "ponytail",
+      "Tie": "fitted-chest-contact",
+      "uncoveredSkirtOrMSkirt": "disabled"
+    },
+    "hanging": {
+      "long-hair": {
+        "mass": 0.07,
+        "massTaper": 0.8,
+        "linearDamping": 0.95,
+        "angularDamping": 0.98,
+        "frequencyHz": 2.0,
+        "swingDegrees": [
+          120.0,
+          0.0,
+          55.0
+        ]
+      },
+      "ponytail": {
+        "mass": 0.025,
+        "massTaper": 0.8,
+        "linearDamping": 0.95,
+        "angularDamping": 0.95,
+        "frequencyHz": 2.0,
+        "twistBudgetDegrees": 10.0
+      },
+      "chest-tie": {
+        "mass": 0.02,
+        "massTaper": 0.8,
+        "linearDamping": 0.95,
+        "angularDamping": 0.95,
+        "frequencyHz": 1.0,
+        "swingDegrees": [
+          75.0,
+          0.0,
+          20.0
+        ],
+        "rootLimitPolicy": "nearest-body-direction",
+        "jointLimitPolicy": "root-only",
+        "rigidMode": 2,
+        "displayPolicy": "source-chain-position-aligned"
+      }
+    },
+    "contact": {
+      "sourceEnvelopeCollision": false,
+      "selfCollision": false,
+      "tieSurfaceRadiusChainLengthRatio": 0.04,
+      "tieBodyPatchRadiusRatio": 4.0,
+      "tieThicknessMm": 1.0,
+      "tieBodyMarginMm": 0.5,
+      "tiePanelLengthChainLengthRatio": 0.16,
+      "tiePanelFitGeometry": "weighted-vertex-slabs",
+      "tieRigidInflationChainLengthRatio": 0.02,
+      "tieMassDistribution": "driver-fraction",
+      "tieDriverMassFraction": 0.8,
+      "bodySurfaceWeightThreshold": 0.5
+    },
+    "mainSkirtRecipeChanged": false,
+    "globalGravityModified": false,
+    "usesCharacterIdForParameters": false,
+    "usesMotionFramesForParameters": false
+  }
+}

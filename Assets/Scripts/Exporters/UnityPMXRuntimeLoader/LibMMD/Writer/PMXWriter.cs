@@ -21,33 +21,30 @@ namespace LibMMD.Writer
                 Version = 2,
                 FileFlagSize = 8
             };
-
             PmxConfig PmxConfig = new PmxConfig()
             {
                 Utf8Encoding = false,
                 Encoding = Encoding.Unicode,
                 ExtraUvNumber = 3, //include uv2 and color
-                VertexIndexSize = 2,
-                TextureIndexSize = 1,
-                MaterialIndexSize = 1,
-                BoneIndexSize = 2,
-                MorphIndexSize = 2,
-                RigidBodyIndexSize = 2
+                VertexIndexSize = model.Vertices.Length <= 256 ? 1 : model.Vertices.Length <= 65536 ? 2 : 4,
+                TextureIndexSize = SignedIndexSize(model.TextureList.Count),
+                MaterialIndexSize = SignedIndexSize(model.Parts.Length),
+                BoneIndexSize = SignedIndexSize(model.Bones.Length),
+                MorphIndexSize = SignedIndexSize(model.Morphs.Length),
+                RigidBodyIndexSize = SignedIndexSize(model.Rigidbodies.Length)
             };
-
             PMXEntryItem.Element baseElement = new PMXEntryItem.Element();
             baseElement.IsMorph = false;
             baseElement.MorphIndex = 0;
             baseElement.BoneIndex = 0;
-
             PMXEntryItem baseEntry = new PMXEntryItem();
             baseEntry.EntryItemName = "Root";
             baseEntry.EntryItemNameEn = "Root";
             baseEntry.IsSpecial = true;
-            baseEntry.Elements = new List<PMXEntryItem.Element>{ baseElement };
-
-            model.Entrys.Insert(0, baseEntry);
-
+            baseEntry.Elements = new List<PMXEntryItem.Element>
+            {
+                baseElement
+            };
             WriteMeta(writer, pmxHeader);
             WritePmxConfig(writer, PmxConfig);
             WriteModelNameAndDescription(writer, model, PmxConfig);
@@ -57,10 +54,14 @@ namespace LibMMD.Writer
             WriteParts(writer, config, model, PmxConfig);
             WriteBones(writer, model, PmxConfig);
             WriteMorphs(writer, model, PmxConfig);
-            WriteEntries(writer, model.Entrys, PmxConfig);
+            var entries = new List<PMXEntryItem>(model.Entrys);
+            entries.Insert(0, baseEntry);
+            WriteEntries(writer, entries, PmxConfig);
             WriteRigidBodies(writer, model.Rigidbodies, PmxConfig);
             WriteJoints(writer, model, PmxConfig);
         }
+
+        private static int SignedIndexSize(int count) => count <= 128 ? 1 : count <= 32768 ? 2 : 4;
 
         private static void WriteJoints(BinaryWriter writer, RawMMDModel model, PmxConfig pmxConfig)
         {
@@ -69,15 +70,12 @@ namespace LibMMD.Writer
             {
                 MMDReaderWriteUtil.WriteSizedString(writer, joint.Name, pmxConfig.Encoding);
                 MMDReaderWriteUtil.WriteSizedString(writer, joint.NameEn, pmxConfig.Encoding);
-
                 writer.Write((byte)0); // dofType
-
                 MMDReaderWriteUtil.WriteIndex(writer, joint.AssociatedRigidBodyIndex[0], pmxConfig.RigidBodyIndexSize);
                 MMDReaderWriteUtil.WriteIndex(writer, joint.AssociatedRigidBodyIndex[1], pmxConfig.RigidBodyIndexSize);
                 MMDReaderWriteUtil.WriteVector3(writer, joint.Position);
                 MMDReaderWriteUtil.WriteEulerRotation(writer, joint.Rotation);
-                MMDReaderWriteUtil.WritePositionLimitPair(
-                    writer, joint.PositionLowLimit, joint.PositionHiLimit);
+                MMDReaderWriteUtil.WritePositionLimitPair(writer, joint.PositionLowLimit, joint.PositionHiLimit);
                 // PMX Joint 角限制和旋转弹簧是原始轴分量，单位为弧度，不属于空间坐标。
                 MMDReaderWriteUtil.WriteRawVector3(writer, joint.RotationLowLimit);
                 MMDReaderWriteUtil.WriteRawVector3(writer, joint.RotationHiLimit);
@@ -135,32 +133,25 @@ namespace LibMMD.Writer
             }
         }
 
-
         private static void WriteMorphs(BinaryWriter writer, RawMMDModel model, PmxConfig pmxConfig)
         {
             var morphNum = model.Morphs.Length;
             writer.Write(morphNum);
-
             int? baseMorphIndex = null;
-
             for (var i = 0; i < morphNum; ++i)
             {
                 var morph = model.Morphs[i];
-
                 MMDReaderWriteUtil.WriteSizedString(writer, morph.Name, pmxConfig.Encoding);
                 MMDReaderWriteUtil.WriteSizedString(writer, morph.NameEn, pmxConfig.Encoding);
                 writer.Write((byte)morph.Category);
-
                 if (morph.Category == Morph.MorphCategory.MorphCatSystem)
                 {
                     baseMorphIndex = i;
                 }
 
                 writer.Write((byte)morph.Type);
-
                 var morphDataNum = morph.MorphDatas.Length;
                 writer.Write(morphDataNum);
-
                 switch (morph.Type)
                 {
                     case Morph.MorphType.MorphTypeGroup:
@@ -170,6 +161,7 @@ namespace LibMMD.Writer
                             MMDReaderWriteUtil.WriteIndex(writer, morphData.MorphIndex, pmxConfig.MorphIndexSize);
                             writer.Write(morphData.MorphRate);
                         }
+
                         break;
                     case Morph.MorphType.MorphTypeVertex:
                         for (var j = 0; j < morphDataNum; ++j)
@@ -178,6 +170,7 @@ namespace LibMMD.Writer
                             MMDReaderWriteUtil.WriteIndex(writer, morphData.VertexIndex, pmxConfig.VertexIndexSize);
                             MMDReaderWriteUtil.WriteVector3(writer, morphData.Offset);
                         }
+
                         break;
                     case Morph.MorphType.MorphTypeBone:
                         for (var j = 0; j < morphDataNum; ++j)
@@ -187,6 +180,7 @@ namespace LibMMD.Writer
                             MMDReaderWriteUtil.WriteVector3(writer, morphData.Translation);
                             MMDReaderWriteUtil.WriteQuaternion(writer, morphData.Rotation);
                         }
+
                         break;
                     case Morph.MorphType.MorphTypeUv:
                     case Morph.MorphType.MorphTypeExtUv1:
@@ -199,15 +193,15 @@ namespace LibMMD.Writer
                             MMDReaderWriteUtil.WriteIndex(writer, morphData.VertexIndex, pmxConfig.VertexIndexSize);
                             MMDReaderWriteUtil.WriteVector4(writer, morphData.Offset);
                         }
+
                         break;
                     case Morph.MorphType.MorphTypeMaterial:
                         for (var j = 0; j < morphDataNum; j++)
                         {
                             var morphData = (Morph.MaterialMorphData)morph.MorphDatas[j];
-
                             if (morphData.Global)
                             {
-                                MMDReaderWriteUtil.WriteIndex(writer, 0, pmxConfig.MaterialIndexSize);
+                                MMDReaderWriteUtil.WriteIndex(writer, -1, pmxConfig.MaterialIndexSize);
                             }
                             else
                             {
@@ -225,18 +219,13 @@ namespace LibMMD.Writer
                             MMDReaderWriteUtil.WriteVector4(writer, morphData.SubTexture);
                             MMDReaderWriteUtil.WriteVector4(writer, morphData.ToonTexture);
                         }
+
                         break;
                     default:
                         throw new MMDFileParseException("invalid morph type " + morph.Type);
                 }
-
-                if (baseMorphIndex != null)
-                {
-                    // TODO: rectify system-reserved category
-                }
             }
         }
-
 
         private static void WriteBones(BinaryWriter writer, RawMMDModel model, PmxConfig pmxConfig)
         {
@@ -250,7 +239,6 @@ namespace LibMMD.Writer
                 MMDReaderWriteUtil.WriteVector3(writer, bone.Position);
                 MMDReaderWriteUtil.WriteIndex(writer, bone.ParentIndex, pmxConfig.BoneIndexSize);
                 writer.Write(bone.TransformLevel);
-
                 ushort flag = 0;
                 if (bone.ChildBoneVal.ChildUseId)
                     flag |= PmxBoneFlags.PmxBoneChildUseId;
@@ -277,7 +265,6 @@ namespace LibMMD.Writer
                 if (bone.ReceiveTransform)
                     flag |= PmxBoneFlags.PmxBoneReceiveTransform;
                 writer.Write(flag);
-
                 if (bone.ChildBoneVal.ChildUseId)
                 {
                     MMDReaderWriteUtil.WriteIndex(writer, bone.ChildBoneVal.Index, pmxConfig.BoneIndexSize);
@@ -287,15 +274,15 @@ namespace LibMMD.Writer
                     MMDReaderWriteUtil.WriteVector3(writer, bone.ChildBoneVal.Offset);
                 }
 
-                if (bone.RotAxisFixed)
-                {
-                    MMDReaderWriteUtil.WriteVector3(writer, bone.RotAxis, false);
-                }
-
                 if (bone.AppendRotate || bone.AppendTranslate)
                 {
                     MMDReaderWriteUtil.WriteIndex(writer, bone.AppendBoneVal.Index, pmxConfig.BoneIndexSize);
                     writer.Write(bone.AppendBoneVal.Ratio);
+                }
+
+                if (bone.RotAxisFixed)
+                {
+                    MMDReaderWriteUtil.WriteVector3(writer, bone.RotAxis, false);
                 }
 
                 if (bone.UseLocalAxis)
@@ -321,7 +308,6 @@ namespace LibMMD.Writer
             MMDReaderWriteUtil.WriteIndex(writer, bone.IkInfoVal.IkTargetIndex, boneIndexSize);
             writer.Write(bone.IkInfoVal.CcdIterateLimit);
             writer.Write(bone.IkInfoVal.CcdAngleLimit);
-
             var ikLinkNum = bone.IkInfoVal.IkLinks.Length;
             writer.Write(ikLinkNum);
             for (var j = 0; j < ikLinkNum; ++j)
@@ -340,7 +326,6 @@ namespace LibMMD.Writer
         {
             ValidateFinite(lower, "IK lower limit");
             ValidateFinite(upper, "IK upper limit");
-
             // PMX IK 区间是原始欧拉角弧度；不能复用空间向量的尺寸倍率或 X/Z 翻轴。
             Vector3 pmxLower = Vector3.Min(lower, upper);
             Vector3 pmxUpper = Vector3.Max(lower, upper);
@@ -350,9 +335,7 @@ namespace LibMMD.Writer
 
         private static void ValidateFinite(Vector3 value, string fieldName)
         {
-            if (float.IsNaN(value.x) || float.IsInfinity(value.x) ||
-                float.IsNaN(value.y) || float.IsInfinity(value.y) ||
-                float.IsNaN(value.z) || float.IsInfinity(value.z))
+            if (float.IsNaN(value.x) || float.IsInfinity(value.x) || float.IsNaN(value.y) || float.IsInfinity(value.y) || float.IsNaN(value.z) || float.IsInfinity(value.z))
             {
                 throw new MMDFileParseException(fieldName + " contains NaN or Infinity");
             }
@@ -372,12 +355,12 @@ namespace LibMMD.Writer
                 {
                     throw new MMDFileParseException($"part{i} triangle index count {part.TriangleIndexNum} is not a multiple of 3");
                 }
+
                 partBaseShift += part.TriangleIndexNum;
             }
         }
 
-        private static void WriteMaterial(BinaryWriter writer, MMDMaterial material, ModelConfig config, Encoding encoding,
-        int textureIndexSize, List<MMDTexture> textureList)
+        private static void WriteMaterial(BinaryWriter writer, MMDMaterial material, ModelConfig config, Encoding encoding, int textureIndexSize, List<MMDTexture> textureList)
         {
             MMDReaderWriteUtil.WriteSizedString(writer, material.Name, encoding);
             MMDReaderWriteUtil.WriteSizedString(writer, material.NameEn, encoding);
@@ -385,7 +368,6 @@ namespace LibMMD.Writer
             MMDReaderWriteUtil.WriteColor(writer, material.SpecularColor, false);
             writer.Write(material.Shiness);
             MMDReaderWriteUtil.WriteColor(writer, material.AmbientColor, false);
-
             byte drawFlag = 0;
             if (material.DrawDoubleFace)
                 drawFlag |= PmxMaterialDrawFlags.PmxMaterialDrawDoubleFace;
@@ -398,21 +380,15 @@ namespace LibMMD.Writer
             if (material.DrawEdge)
                 drawFlag |= PmxMaterialDrawFlags.PmxMaterialDrawEdge;
             writer.Write(drawFlag);
-
             MMDReaderWriteUtil.WriteColor(writer, material.EdgeColor, true);
             writer.Write(material.EdgeSize);
-
             int textureIndex = GetTextureIndex(material.Texture, textureList);
             MMDReaderWriteUtil.WriteIndex(writer, textureIndex, textureIndexSize);
-
             int subTextureIndex = GetTextureIndex(material.SubTexture, textureList);
             MMDReaderWriteUtil.WriteIndex(writer, subTextureIndex, textureIndexSize);
-
             writer.Write((byte)material.SubTextureType);
-
             bool useGlobalToon = false;
             int globalToonIndex = 0;
-
             if (material.Toon != null)
             {
                 if (material.Toon.IsGlobalToon)
@@ -421,10 +397,8 @@ namespace LibMMD.Writer
                     globalToonIndex = MMDTextureUtil.GetGlobalToonIndex(material.Toon.TexturePath, config.GlobalToonPath);
                 }
             }
+
             writer.Write((byte)(useGlobalToon ? 1 : 0));
-
-
-
             if (useGlobalToon)
             {
                 writer.Write((byte)globalToonIndex);
@@ -448,6 +422,7 @@ namespace LibMMD.Writer
                     return index;
                 }
             }
+
             return -1;
         }
 
@@ -471,6 +446,7 @@ namespace LibMMD.Writer
             {
                 throw new MMDFileParseException("triangle index count " + triangleIndexCount + " is not a multiple of 3");
             }
+
             for (var i = 0; i < triangleIndexCount; ++i)
             {
                 MMDReaderWriteUtil.WriteIndex(writer, model.TriangleIndexes[i], pmxConfig.VertexIndexSize);
@@ -499,7 +475,6 @@ namespace LibMMD.Writer
         private static void WriteVertex(BinaryWriter writer, Vertex vertex, PmxConfig pmxConfig)
         {
             WriteVertexBasic(writer, vertex.Coordinate, vertex.Normal, vertex.UvCoordinate);
-
             if (pmxConfig.ExtraUvNumber > 0)
             {
                 for (var ei = 0; ei < pmxConfig.ExtraUvNumber; ++ei)
@@ -510,7 +485,6 @@ namespace LibMMD.Writer
 
             var skinningType = (byte)vertex.SkinningOperator.Type;
             writer.Write(skinningType);
-
             switch ((SkinningOperator.SkinningType)skinningType)
             {
                 case SkinningOperator.SkinningType.SkinningBdef1:
@@ -529,10 +503,12 @@ namespace LibMMD.Writer
                     {
                         MMDReaderWriteUtil.WriteIndex(writer, bdef4.BoneId[j], pmxConfig.BoneIndexSize);
                     }
+
                     for (var j = 0; j < 4; ++j)
                     {
                         writer.Write(bdef4.BoneWeight[j]);
                     }
+
                     break;
                 case SkinningOperator.SkinningType.SkinningSdef:
                     var sdef = (SkinningOperator.Sdef)vertex.SkinningOperator.Param;

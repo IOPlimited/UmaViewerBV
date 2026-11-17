@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
 using System;
@@ -9,6 +9,8 @@ using Gallop;
 public class UnityHumanoidVMDRecorder : MonoBehaviour
 {
     public const string FileSavePath = "/../VMDRecords";
+    // Enable when recording for models exported with the previous Spine/Chest rig.
+    public bool UseLegacyBoneMapping = false;
     public bool UseParentOfAll = true;
     public bool UseCenterAsParentOfAll = true;
     /// <summary>
@@ -43,7 +45,7 @@ public class UnityHumanoidVMDRecorder : MonoBehaviour
         左薬指１, 左薬指２, 左薬指３, 左小指１, 左小指２, 左小指３, 右親指１, 右親指２,
         右人指１, 右人指２, 右人指３, 右中指１, 右中指２, 右中指３, 右薬指１, 右薬指２,
         右薬指３, 右小指１, 右小指２, 右小指３, 左足, 右足, 左ひざ, 右ひざ,
-        左足首, 右足首, 左足先EX, 右足先EX, 左目, 右目, 左耳, 右耳, 左耳1, 右耳1, 左耳2, 右耳2, 顎, 左親指０, 右親指０, None
+        左足首, 右足首, 左足先EX, 右足先EX, 左目, 右目, 左耳, 右耳, 左耳1, 右耳1, 左耳2, 右耳2, 顎, 左親指０, 右親指０, 上半身補助, 左上腕補助, 右上腕補助, 左前腕補助, 右前腕補助, 左足首補助, 右足首補助, 左足指補助, 右足指補助, 左つま先, 右つま先, 上体補助, 左つま先ＩＫ, 右つま先ＩＫ, None
     }
     //コンストラクタにて初期化
     //全てのボーンを名前で引く辞書
@@ -101,6 +103,8 @@ public class UnityHumanoidVMDRecorder : MonoBehaviour
     public Vector3 LeftFootIKOffset = Vector3.zero;
     public Vector3 RightFootIKOffset = Vector3.zero;
 
+    readonly Dictionary<BoneNames, Vector3> toeIkReferenceOffsets = new Dictionary<BoneNames, Vector3>();
+    readonly Dictionary<BoneNames, Vector3> toeIkReferenceDirections = new Dictionary<BoneNames, Vector3>();
     BoneGhost boneGhost;
     public MorphRecorder morphRecorder;
     public MorphRecorder morphRecorderSaved;
@@ -182,6 +186,26 @@ public class UnityHumanoidVMDRecorder : MonoBehaviour
                 { BoneNames.右親指０, objs.Find(a=>a.name.Equals("Thumb_01_R", StringComparison.OrdinalIgnoreCase))}
         };
 
+        var characterContainer = GetComponentInParent<UmaContainerCharacter>();
+        foreach (var key in new[] { BoneNames.上半身補助, BoneNames.左上腕補助, BoneNames.右上腕補助,
+                     BoneNames.左前腕補助, BoneNames.右前腕補助, BoneNames.左足首補助, BoneNames.右足首補助,
+                     BoneNames.左足指補助, BoneNames.右足指補助, BoneNames.左つま先, BoneNames.右つま先,
+                     BoneNames.上体補助, BoneNames.左つま先ＩＫ, BoneNames.右つま先ＩＫ })
+            BoneDictionary[key] = null;
+        if (!UseLegacyBoneMapping)
+        {
+            var preferred = new HashSet<Transform>(GetComponentsInChildren<SkinnedMeshRenderer>(true).SelectMany(r => r.bones).Where(t => t != null));
+            var profile = new PMXBoneProfile(objs, preferred, characterContainer.IsMini);
+            foreach (var key in BoneDictionary.Keys.ToArray())
+                if (key != BoneNames.全ての親 && key != BoneNames.センター && key != BoneNames.左足ＩＫ && key != BoneNames.右足ＩＫ)
+                    BoneDictionary[key] = null;
+            foreach (var role in profile.CanonicalSources)
+                if (Enum.TryParse(role.Key, out BoneNames key) && key != BoneNames.None && BoneDictionary.ContainsKey(key))
+                    BoneDictionary[key] = role.Value;
+            BoneDictionary[BoneNames.左つま先ＩＫ] = profile.Find("Toe_L");
+            BoneDictionary[BoneNames.右つま先ＩＫ] = profile.Find("Toe_R");
+        }
+
         Debug.Log($"VMDRecorder initialized. Bones matched: {BoneDictionary.Count(b => b.Value != null)}/{BoneDictionary.Count}");
 
         foreach (KeyValuePair<BoneNames, Transform> pair in BoneDictionary)
@@ -189,14 +213,13 @@ public class UnityHumanoidVMDRecorder : MonoBehaviour
             transformDictionary.Add(pair.Key.ToString(), pair.Value);
         }
 
-        var characterContainer = GetComponentInParent<UmaContainerCharacter>();
         var animator = characterContainer.UmaAnimator;
         var state = animator.GetCurrentAnimatorStateInfo(0);
         animator.enabled = false;
 
         // 先回到初始化姿势，再切换为 PMX 导出共用的 MMD 默认 A-pose。
         characterContainer.ResetBodyPose();
-        characterContainer.UpBodyReset();
+        if (!characterContainer.IsMini) characterContainer.UpBodyReset();
         BoneDictionary[BoneNames.左腕]?.Rotate(0, 0, -aposeDegress);
         BoneDictionary[BoneNames.右腕]?.Rotate(0, 0, aposeDegress);
 
@@ -220,7 +243,13 @@ public class UnityHumanoidVMDRecorder : MonoBehaviour
             RightFootIKOffset = Quaternion.Inverse(transform.rotation) * (BoneDictionary[BoneNames.右足ＩＫ].position - transform.position);
         }
 
-        boneGhost = new BoneGhost(BoneDictionary, UseBottomCenter);
+        foreach (var pair in new[] { (BoneNames.左つま先ＩＫ, BoneNames.左足ＩＫ), (BoneNames.右つま先ＩＫ, BoneNames.右足ＩＫ) })
+            if (BoneDictionary[pair.Item1] != null && BoneDictionary[pair.Item2] != null)
+            {
+                toeIkReferenceOffsets[pair.Item1] = BoneDictionary[pair.Item2].InverseTransformPoint(BoneDictionary[pair.Item1].position);
+                toeIkReferenceDirections[pair.Item1] = Quaternion.Inverse(transform.rotation) * (BoneDictionary[pair.Item1].position - BoneDictionary[pair.Item2].position);
+            }
+        boneGhost = new BoneGhost(BoneDictionary, UseBottomCenter, UseLegacyBoneMapping);
         morphRecorder = new MorphRecorder(transform);
 
         // Ghost 建立后撤销临时参考旋转，让 Animator 从原动画状态继续驱动角色。
@@ -278,6 +307,18 @@ public class UnityHumanoidVMDRecorder : MonoBehaviour
         {
             if (BoneDictionary[boneName] == null)
             {
+                continue;
+            }
+
+            if (boneName == BoneNames.左つま先ＩＫ || boneName == BoneNames.右つま先ＩＫ)
+            {
+                var ankle = BoneDictionary[boneName == BoneNames.左つま先ＩＫ ? BoneNames.左足ＩＫ : BoneNames.右足ＩＫ];
+                // The export IK endpoint follows Ankle, while Ankle_offset and
+                // Toe retain their independently recorded deformation channels.
+                Vector3 localTip = toeIkReferenceOffsets[boneName];
+                Vector3 offset = Quaternion.Inverse(transform.rotation) * ankle.TransformVector(localTip) - toeIkReferenceDirections[boneName];
+                positionDictionary[boneName].Add(new Vector3(-offset.x, offset.y, -offset.z) * DefaultBoneAmplifier);
+                rotationDictionary[boneName].Add(Quaternion.identity);
                 continue;
             }
 
@@ -350,7 +391,11 @@ public class UnityHumanoidVMDRecorder : MonoBehaviour
                     // Calculate and add position normally for other bones
                     Vector3 boneVector = boneGhost.GhostDictionary[boneName].ghost.localPosition;
                     boneVector -= boneGhost.GhostOriginalLocalPositionDictionary[boneName];
-                    positionDictionary[boneName].Add(new Vector3(-boneVector.x, boneVector.y, -boneVector.z));
+                    // The center ghost is parented to Position, whose scale is
+                    // the character's height. PMX has this scale baked in.
+                    if (boneName == BoneNames.センター)
+                        boneVector = Vector3.Scale(boneVector, transform.localScale);
+                    positionDictionary[boneName].Add(new Vector3(-boneVector.x, boneVector.y, -boneVector.z) * DefaultBoneAmplifier);
                 }
                 continue;
             }
@@ -782,9 +827,10 @@ public class UnityHumanoidVMDRecorder : MonoBehaviour
 
         const string GhostSalt = "Ghost";
         private Dictionary<BoneNames, Transform> boneDictionary = new Dictionary<BoneNames, Transform>();
+        private BoneNames[] updateOrder;
         float centerOffsetLength = 0;
 
-        public BoneGhost(Dictionary<BoneNames, Transform> boneDictionary, bool useBottomCenter)
+        public BoneGhost(Dictionary<BoneNames, Transform> boneDictionary, bool useBottomCenter, bool legacy = false)
         {
             this.boneDictionary = boneDictionary;
             UseBottomCenter = useBottomCenter;
@@ -854,10 +900,30 @@ public class UnityHumanoidVMDRecorder : MonoBehaviour
                 { BoneNames.右小指３, (BoneNames.右小指２, BoneNames.None, BoneNames.None) },
             };
 
+            boneParentDictionary[BoneNames.上体補助] = (BoneNames.None, BoneNames.None, BoneNames.センター);
+            boneParentDictionary[BoneNames.上半身補助] = (BoneNames.None, BoneNames.None, BoneNames.上半身);
+            boneParentDictionary[BoneNames.左上腕補助] = (BoneNames.None, BoneNames.None, BoneNames.左腕);
+            boneParentDictionary[BoneNames.右上腕補助] = (BoneNames.None, BoneNames.None, BoneNames.右腕);
+            boneParentDictionary[BoneNames.左前腕補助] = (BoneNames.None, BoneNames.None, BoneNames.左ひじ);
+            boneParentDictionary[BoneNames.右前腕補助] = (BoneNames.None, BoneNames.None, BoneNames.右ひじ);
+            boneParentDictionary[BoneNames.左足首補助] = (BoneNames.None, BoneNames.None, BoneNames.左足首);
+            boneParentDictionary[BoneNames.右足首補助] = (BoneNames.None, BoneNames.None, BoneNames.右足首);
+            boneParentDictionary[BoneNames.左つま先] = (BoneNames.左足首補助, BoneNames.None, BoneNames.左足首);
+            boneParentDictionary[BoneNames.右つま先] = (BoneNames.右足首補助, BoneNames.None, BoneNames.右足首);
+            boneParentDictionary[BoneNames.左足指補助] = (BoneNames.左つま先, BoneNames.左足先EX, BoneNames.左足首);
+            boneParentDictionary[BoneNames.右足指補助] = (BoneNames.右つま先, BoneNames.右足先EX, BoneNames.右足首);
+            if (!legacy)
+            {
+                boneParentDictionary[BoneNames.上半身] = (BoneNames.上体補助, BoneNames.None, BoneNames.センター);
+                boneParentDictionary[BoneNames.上半身2] = (BoneNames.上半身補助, BoneNames.None, BoneNames.上半身);
+                boneParentDictionary[BoneNames.左親指１] = (BoneNames.左親指０, BoneNames.None, BoneNames.左手首);
+                boneParentDictionary[BoneNames.右親指１] = (BoneNames.右親指０, BoneNames.None, BoneNames.右手首);
+            }
+
             //Ghostの生成
             foreach (BoneNames boneName in boneDictionary.Keys)
             {
-                if (boneName == BoneNames.全ての親 || boneName == BoneNames.左足ＩＫ || boneName == BoneNames.右足ＩＫ)
+                if (boneName == BoneNames.全ての親 || boneName == BoneNames.左足ＩＫ || boneName == BoneNames.右足ＩＫ || boneName == BoneNames.左つま先ＩＫ || boneName == BoneNames.右つま先ＩＫ)
                 {
                     continue;
                 }
@@ -883,7 +949,7 @@ public class UnityHumanoidVMDRecorder : MonoBehaviour
             //Ghostの親子構造を設定
             foreach (BoneNames boneName in boneDictionary.Keys)
             {
-                if (boneName == BoneNames.全ての親 || boneName == BoneNames.左足ＩＫ || boneName == BoneNames.右足ＩＫ)
+                if (boneName == BoneNames.全ての親 || boneName == BoneNames.左足ＩＫ || boneName == BoneNames.右足ＩＫ || boneName == BoneNames.左つま先ＩＫ || boneName == BoneNames.右つま先ＩＫ)
                 {
                     continue;
                 }
@@ -942,11 +1008,23 @@ public class UnityHumanoidVMDRecorder : MonoBehaviour
             }
 
             centerOffsetLength = Vector3.Distance(boneDictionary[BoneNames.全ての親].position, boneDictionary[BoneNames.センター].position);
+            // Setting a parent's world pose moves its children. Update parents
+            // first even when an optional helper was added later to the map.
+            updateOrder = GhostDictionary.Keys
+                .Where(name => GhostDictionary[name].ghost != null && GhostDictionary[name].enabled)
+                .OrderBy(name => GetDepth(GhostDictionary[name].ghost)).ToArray();
+        }
+
+        private static int GetDepth(Transform bone)
+        {
+            int depth = 0;
+            for (var parent = bone.parent; parent != null; parent = parent.parent) depth++;
+            return depth;
         }
 
         public void GhostAll()
         {
-            foreach (BoneNames boneName in GhostDictionary.Keys)
+            foreach (BoneNames boneName in updateOrder)
             {
                 if (GhostDictionary[boneName].ghost == null || !GhostDictionary[boneName].enabled) { continue; }
                 Quaternion transQuaternion = boneDictionary[boneName].rotation * Quaternion.Inverse(OriginalRotationDictionary[boneName]);
@@ -972,6 +1050,7 @@ public class UnityHumanoidVMDRecorder : MonoBehaviour
         {
             var facialTarget = model.GetComponentInParent<UmaContainerCharacter>().FaceDrivenKeyTarget;
             FacialMorphList = new List<FacialMorph>();
+            if (facialTarget == null) return;
             FacialMorphList.AddRange(facialTarget.EarMorphs);     // 耳朵morph（之前缺失）
             FacialMorphList.AddRange(facialTarget.EyeBrowMorphs);
             FacialMorphList.AddRange(facialTarget.EyeMorphs);

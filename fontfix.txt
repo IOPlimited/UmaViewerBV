@@ -1,0 +1,9 @@
+CJK 字体: dynamic01 SDF mode=Dynamic src=NotoSansCJKsc-Bold glyphs=97
+默认字体(改前): LiberationSans SDF
+fallback 数量(改前): 0
+默认字体(改后): dynamic01 SDF
+SDF 1 guid=13dfe63a6961723469de3873728ddf8e -> 309c10a796fa90746889302436dac032
+  Assets\Scenes\Version2.unity: 1 处
+  Assets\Resources\Prefabs\UmaUIContainer.prefab: 4 处
+SDF 1 引用改写完成，共 5 处
+DONE

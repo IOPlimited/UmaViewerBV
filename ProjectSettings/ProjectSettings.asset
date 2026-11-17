@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!129 &1
 PlayerSettings:
@@ -12,8 +12,8 @@ PlayerSettings:
   targetDevice: 2
   useOnDemandResources: 0
   accelerometerFrequency: 60
-  companyName: Buenavista.fans
-  productName: UmaViewer
+  companyName: buenavista.fans
+  productName: UmaViewerBV
   defaultCursor: {fileID: 2800000, guid: 533f56f1c61acf543bf019a728aadcd4, type: 3}
   cursorHotspot: {x: 40, y: 4}
   m_SplashScreenBackgroundColor: {r: 0.13725491, g: 0.12156863, b: 0.1254902, a: 1}
@@ -143,7 +143,7 @@ PlayerSettings:
   loadStoreDebugModeEnabled: 0
   visionOSBundleVersion: 1.0
   tvOSBundleVersion: 1.0
-  bundleVersion: 2.1.34
+  bundleVersion: 2.1.48
   preloadedAssets: []
   metroInputSource: 0
   wsaTransparentSwapchain: 0
@@ -165,7 +165,7 @@ PlayerSettings:
   androidSupportedAspectRatio: 1
   androidMaxAspectRatio: 2.1
   applicationIdentifier:
-    Android: fans.buenavista.umaviewer
+    Android: com.hongyiw689.umaviewer
     Standalone: com.UmaViewer
     iPhone: com.------------.UmaViewer
   buildNumber:
@@ -295,9 +295,51 @@ PlayerSettings:
   - m_BuildTarget: 
     m_Icons:
     - serializedVersion: 2
-      m_Icon: {fileID: 2800000, guid: 820fda6e5b7a9a4438c208805c824984, type: 3}
+      m_Icon: {fileID: 2800000, guid: c4a93c9474ffff041bc75e24b26776b4, type: 3}
       m_Width: 128
       m_Height: 128
+      m_Kind: 0
+  - m_BuildTarget: Standalone
+    m_Icons:
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4a93c9474ffff041bc75e24b26776b4, type: 3}
+      m_Width: 1024
+      m_Height: 1024
+      m_Kind: 0
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4a93c9474ffff041bc75e24b26776b4, type: 3}
+      m_Width: 512
+      m_Height: 512
+      m_Kind: 0
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4a93c9474ffff041bc75e24b26776b4, type: 3}
+      m_Width: 256
+      m_Height: 256
+      m_Kind: 0
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4a93c9474ffff041bc75e24b26776b4, type: 3}
+      m_Width: 128
+      m_Height: 128
+      m_Kind: 0
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4a93c9474ffff041bc75e24b26776b4, type: 3}
+      m_Width: 64
+      m_Height: 64
+      m_Kind: 0
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4a93c9474ffff041bc75e24b26776b4, type: 3}
+      m_Width: 48
+      m_Height: 48
+      m_Kind: 0
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4a93c9474ffff041bc75e24b26776b4, type: 3}
+      m_Width: 32
+      m_Height: 32
+      m_Kind: 0
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: c4a93c9474ffff041bc75e24b26776b4, type: 3}
+      m_Width: 16
+      m_Height: 16
       m_Kind: 0
   m_BuildTargetPlatformIcons:
   - m_BuildTarget: Android

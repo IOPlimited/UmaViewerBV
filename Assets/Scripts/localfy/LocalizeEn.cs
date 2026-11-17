@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 /// <summary>
 /// Built-in English localization text.
@@ -9,45 +9,8 @@ using System.Collections.Generic;
 public static class LocalizeEn
 {
     public const string TranslationUrl = "https://raw.githubusercontent.com/UmaTL/hachimi-tl-en/refs/heads/main/localized_data/text_data_dict.json";
-
-    // Simplified Chinese: dropped next to the player as translations/zh-CN.json
-    // (same hachimi text_data_dict.json layout). Set TranslationUrlCn to serve it
-    // from the API instead.
-    public const string TranslationFileNameCn = "zh-CN.json";
-    public const string TranslationUrlCn = "https://fuwadl.yingqwq.cn/zh-cn/root/text_data_dict.json";
-
-    // Fallback mirrors of the same hachimi zh-CN payload (identical content, different hosts).
-    public static readonly string[] TranslationUrlCnMirrors =
-    {
-        "https://fuwadl.yingqwq.cn/zh-cn/root/text_data_dict.json",
-        "https://files.leadrdrk.com/hachimi/tl-zh-cn/localized_data/text_data_dict.json"
-    };
     public const string CharaTranslationTableKey = "6";
     public const string MobTranslationTableKey = "59";
-
-    /// <summary>
-    /// Looks for a Chinese translation file shipped next to the player:
-    /// {exe}/translations/zh-CN.json (hachimi text_data_dict.json layout).
-    /// </summary>
-    public static string FindLocalTranslationFile()
-    {
-        string root = System.IO.Directory.GetParent(UnityEngine.Application.dataPath)?.FullName;
-
-        if (string.IsNullOrEmpty(root)) return null;
-
-        string[] candidates =
-        {
-            System.IO.Path.Combine(root, "translations", TranslationFileNameCn),
-            System.IO.Path.Combine(root, "translations", "zh-CN", "text_data_dict.json")
-        };
-
-        foreach (string candidate in candidates)
-        {
-            if (System.IO.File.Exists(candidate)) return candidate;
-        }
-
-        return null;
-    }
 
     private static readonly Dictionary<int, string> RuntimeCharaNames =
         new Dictionary<int, string>();

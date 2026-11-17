@@ -1,5 +1,4 @@
-
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,6 +10,8 @@ public class Config
     public static string configPath = GetConfigPath();
     public static Config Instance;
     public string Version = "";
+    public string PhysicsBackendTip = "Character physics: 0 = native CySpring (Windows x64), 1 = DynamicBone compatibility. Reload character/Live after changing.";
+    public CharacterPhysicsBackend PhysicsBackend = CharacterPhysicsBackend.CySpringNative;
 
     public string DBBaseKeyTip = "Base key to read game database files";
     public string DBBaseKeyText;
@@ -21,9 +22,6 @@ public class Config
     public string GlobalDBKeyTip = "Key to read game database files (for Global)";
     public string GlobalDBKeyText;
 
-    public string GlobalNamesPathTip = "Optional: GLOBAL game folder (the one ending in Persistent) used ONLY to translate JP names (characters, costumes, songs) to English. Leave empty to auto-detect the usual Steam path.";
-    public string GlobalNamesPath = "";
-
     public string ABKeyTip = "Key to read asset bundles";
     public string ABKeyText;
 
@@ -32,15 +30,11 @@ public class Config
     public string AudioKeyTip = "Hexadecimal key to read game audio files (up to 16 hex digits, without 0x prefix)";
     public string AudioKeyText = DefaultAudioKeyText;
 
+    public string FfmpegPathTip = "Optional: full path to ffmpeg.exe (or the folder containing it) used to encode Live recordings to MP4. Leave empty to look next to the executable and in the PATH.";
+    public string FfmpegPath = "";
+
     public string LanguageTip = "Affects Uma names on the list. Language options: 0 - En, 1 - Jp, 2 - Simplified Chinese";
     public Language Language = Language.En;
-
-    /// <summary>
-    /// Android Default（root）模式下 root 与游戏数据是否可用。false 时启动应直接提示
-    /// "需要 root 权限"，而不是继续走到数据库缺失那一步。
-    /// </summary>
-    [System.NonSerialized]
-    public bool RootAvailable = true;
 
     public string RegionTip = "Game region. Region options: 0 - Global, 1 - Japan";
     public Region Region = Region.Jp;
@@ -48,26 +42,26 @@ public class Config
     public string DownloadMissingResourcesTip = "true/false. automatically download missing files, which may require a VPN.";
     public bool DownloadMissingResources = true;
 
-    public string UseNetworkProxyTip = "true/false. Legacy switch; prefer NetworkProxyMode.";
-    public bool UseNetworkProxy = false;
+    public string UseNetworkProxyTip = "true/false. Use a proxy for downloads. When enabled, follow the system proxy by default; when disabled, connect directly.";
+    public bool UseNetworkProxy = true;
 
-    public string NetworkProxyModeTip = "Proxy mode: 0 - Off (direct only), 1 - On (always use the proxy), 2 - Auto (direct first, switch to the proxy when a request fails).";
-    public ProxyMode NetworkProxyMode = ProxyMode.Auto;
+    public string UseSystemNetworkProxyTip = "true/false. Follow this computer's system proxy automatically. Disable only to use the manual host and port below.";
+    public bool UseSystemNetworkProxy = true;
 
-    public string NetworkProxyHostTip = "HTTP proxy host or IP address. Do not include the protocol or port.";
+    public string NetworkProxyHostTip = "Manual HTTP proxy host. Used only when UseNetworkProxy=true and UseSystemNetworkProxy=false. Do not include protocol or port.";
     public string NetworkProxyHost = "127.0.0.1";
 
-    public string NetworkProxyPortTip = "HTTP proxy port. The default is 7890.";
+    public string NetworkProxyPortTip = "Manual HTTP proxy port. Ignored in system proxy mode.";
     public int NetworkProxyPort = 7890;
 
     public string MainPathTip = "Path to game folder, eg. D:/Backup/Cygames/umamusume";
     public string MainPath = "";
 
-    public string FfmpegPathTip = "Optional: full path to ffmpeg.exe used to encode Live recordings to MP4. Leave empty to look next to the project/executable and in the PATH.";
-    public string FfmpegPath = "";
-
-    public string WorkModeTip = "Affects how application work, options: 0 - work with game client, 1 - work without game client(slow), Database needs to be updated manually";
+    public string WorkModeTip = "Affects how application work, options: 0 - work with game client, 1 - work without game client (automatically builds databases and downloads resources)";
     public WorkMode WorkMode = WorkMode.Default;
+
+    public string CdnModeTip = "CDN source. Cy = official Cygames CDN, CN = China CDN.";
+    public string CdnMode = "Cy";
 
     public string VmdKeyReductionLevelTip = "Affects the recording quality: 1 = record every frame, 2 = record every two frames, and so on.";
     public int VmdKeyReductionLevel = 2;
@@ -75,33 +69,16 @@ public class Config
     public string AntiAliasingTip = "Display, screenshot antialiasing level. 0 - no AA, 1 - 2x MSAA, 2 - 4x MSAA, 3 - 8x MSAA";
     public int AntiAliasing = 2;
 
-    public string TargetFrameRateTip = "Live scene frame rate: positive integer FPS, 0 = unlimited (desktop). Changed only by the Live settings panel.";
+    public string TargetFrameRateTip = "Application frame rate: positive integer FPS, 0 = unlimited (desktop).";
     public int TargetFrameRate = 60;
-
-    public string VideoSpeedTip = "Live playback speed: 1 = normal, 0.25 = slow motion (audio is pitched down to stay in sync). Changed only by the Live settings panel.";
-    public float VideoSpeed = 1f;
-
-    public string MaxSimultaneousVoiceOnSoloConcertTip = "Max voice tracks sounding at once in Solo concert. When more are active, the rest are muted. Default: 2.";
-    public int MaxSimultaneousVoiceOnSoloConcert = 2;
-
-    public string UIFrameRateTip = "Viewer (UI) frame rate: positive integer FPS, 0 = unlimited (desktop). Changed only by the Version2 settings panel.";
-    public int UIFrameRate = 60;
-
-    public string CdnModeTip = "CDN source: 0 = Cy (official), 1 = CN";
-    public int CdnMode = 0;
-
-    public string UIRenderScalePercentTip = "Viewer (UI) render scale, 10-200 %. 100 = native resolution. Changed only by the Version2 settings panel.";
-    public int UIRenderScalePercent = 100;
+    public bool LiveSubtitles = true;
 
     public int RenderScalePercent = 100;
+    public int AnisotropicFiltering = 2;
+    public int TextureMipmapLimit = 0;
     public float LodBias = 2f;
     public float ShadowDistance = 50f;
-
-    public string PostEffectsTip = "Live presentation post effects (DOF, bloom/diffusion, radial blur, color correction, exposure/tone curve, sun shafts, light shafts). Off gives the same unprocessed look as the free camera. Changed only by the Live settings panel.";
-    public bool PostEffects = true;
-
-    public string PostEffectsDisabledTip = "Individual live post effects switched off. An effect is drawn only when 'Post effects' and its own switch are both on.";
-    public List<string> PostEffectsDisabled = new List<string>();
+    public float ShadowDistanceOverride = 0f;
 
     public bool RegionDetectionPassed = false;
 
@@ -202,115 +179,39 @@ public class Config
         0x53, 0x2B, 0x46, 0x31, 0xE4, 0xA7, 0xB9, 0x47, 0x3E, 0x7C, 0xFB
     };
 
+
     public Config()
     {
-        StandaloneLogger.Begin("Config Constructor");
-
         configPath = GetConfigPath();
-
-        StandaloneLogger.Info("ConfigPath = " + configPath);
-        StandaloneLogger.Info("Application.version = " + Application.version);
-        StandaloneLogger.Info("Application.platform = " + Application.platform);
-        StandaloneLogger.Info("Application.dataPath = " + Application.dataPath);
-        StandaloneLogger.Info("Application.persistentDataPath = " + Application.persistentDataPath);
-
         Version = Application.version;
 
         MainPath = $@"{Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "Low"}\Cygames\umamusume";
-
-        if (Application.isMobilePlatform)
+        // 移动端先给一套可用的默认值，然后照常读 Config.json：
+        // 以前这里直接 return，导致 CdnMode / 语言等设置永远停留在默认值。
+        bool mobileDefaults = Application.isMobilePlatform;
+        if (mobileDefaults)
         {
-            StandaloneLogger.Info("Mobile platform detected");
-
+            WorkMode = WorkMode.Standalone;
             DownloadMissingResources = true;
-
-            // Android 上 Default 模式就是 root 模式：直接取 /data/data/<game>/files 的
-            // meta + master + dat，镜像到应用私有目录之后再按普通路径使用。
-            // 不再强制切成 Standalone —— 那会让 Default 变得毫无用处，CDN 重建也慢得多。
-            if (Application.platform == RuntimePlatform.Android && WorkMode == WorkMode.Default)
-            {
-                RootAvailable = AndroidRootSource.HasRoot();
-
-                if (!RootAvailable)
-                {
-                    StandaloneLogger.Error(
-                        "Root unavailable: cannot read " + AndroidRootSource.GameFiles +
-                        " (" + AndroidRootSource.LastError + ")");
-
-                    MainPath = string.Empty;
-                }
-                else
-                {
-                    StandaloneLogger.Info("Root granted, mirroring game data");
-
-                    string mirror = AndroidRootSource.Mirror(Application.persistentDataPath);
-
-                    if (string.IsNullOrEmpty(mirror))
-                    {
-                        RootAvailable = false;
-                        MainPath = string.Empty;
-
-                        StandaloneLogger.Error(
-                            "Root granted but mirroring failed: " + AndroidRootSource.LastError);
-                    }
-                    else
-                    {
-                        MainPath = mirror;
-                    }
-                }
-
-                Instance = this;
-
-                StandaloneLogger.RecordConfig();
-                StandaloneLogger.RecordDirectory("MainPath", MainPath);
-                StandaloneLogger.End("Config Constructor");
-
-                return;
-            }
-
             MainPath = Application.persistentDataPath;
 
-            Instance = this;
-
-            StandaloneLogger.RecordConfig();
-            StandaloneLogger.RecordDirectory("MainPath", MainPath);
-            StandaloneLogger.End("Config Constructor");
-
-            return;
+            // 首次启动写出的默认配置直接用国内 CDN，否则安卓端会去连官方 akamai
+            CdnMode = "CN";
         }
-
-        StandaloneLogger.RecordPath("Config.json", configPath);
 
         if (!File.Exists(configPath))
         {
-            StandaloneLogger.Warning("Config.json does not exist. Creating default config.");
-
             DBBaseKeyText = ByteArrayToHex(DBBaseKey);
             DBKeyText = ByteArrayToHex(DBKey);
             GlobalDBKeyText = ByteArrayToHex(GlobalDBKey);
             ABKeyText = ByteArrayToHex(ABKey);
-
             File.WriteAllText(configPath, JsonUtility.ToJson(this, true));
         }
         else
         {
             try
             {
-                StandaloneLogger.Info("Reading Config.json");
-
-                string configJson = File.ReadAllText(configPath);
-
-                StandaloneLogger.Info("Config.json length = " + configJson.Length);
-
-                JsonUtility.FromJsonOverwrite(configJson, this);
-
-                StandaloneLogger.Info("Config.json parsed successfully");
-
-                // Old configs only had the boolean switch: honour it as the explicit "On" mode.
-                if (UseNetworkProxy && NetworkProxyMode == ProxyMode.Auto)
-                {
-                    NetworkProxyMode = ProxyMode.On;
-                }
+                JsonUtility.FromJsonOverwrite(File.ReadAllText(configPath), this);
 
                 if (string.IsNullOrWhiteSpace(DBBaseKeyText))
                 {
@@ -320,7 +221,6 @@ public class Config
                 {
                     DBBaseKey = HexToByteArray(DBBaseKeyText);
                 }
-
                 if (string.IsNullOrWhiteSpace(DBKeyText))
                 {
                     DBKeyText = ByteArrayToHex(DBKey);
@@ -329,7 +229,6 @@ public class Config
                 {
                     DBKey = HexToByteArray(DBKeyText);
                 }
-
                 if (string.IsNullOrWhiteSpace(ABKeyText))
                 {
                     ABKeyText = ByteArrayToHex(ABKey);
@@ -338,27 +237,21 @@ public class Config
                 {
                     ABKey = HexToByteArray(ABKeyText);
                 }
-
                 if (string.IsNullOrWhiteSpace(GlobalDBKeyText))
                 {
                     GlobalDBKeyText = ByteArrayToHex(GlobalDBKey);
-                }
-                else
+                } else
                 {
                     GlobalDBKey = HexToByteArray(GlobalDBKeyText);
                 }
-
                 if (string.IsNullOrWhiteSpace(AudioKeyText))
                 {
                     AudioKeyText = DefaultAudioKeyText;
                 }
-
                 File.WriteAllText(configPath, JsonUtility.ToJson(this, true));
             }
             catch (Exception ex)
             {
-                StandaloneLogger.Exception("Config load failed", ex);
-
                 if (UmaViewerUI.Instance != null)
                 {
                     UmaViewerUI.Instance.ShowMessage("Config load error. Using default. " + ex.Message, UIMessageType.Error);
@@ -367,65 +260,33 @@ public class Config
                 {
                     Debug.LogError("Config load error. Using default. " + ex.Message);
                 }
-
                 MainPath = $@"{Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + "Low"}\Cygames\umamusume";
             }
         }
+        if (mobileDefaults)
+        {
+            // 配置里可能存着 Windows 的路径和 WorkMode，移动端必须覆盖回来
+            WorkMode = WorkMode.Standalone;
+            MainPath = Application.persistentDataPath;
+        }
 
         Instance = this;
-
-        StandaloneLogger.Info("Config initialized");
-        StandaloneLogger.RecordConfig();
-        StandaloneLogger.RecordDirectory("MainPath", MainPath);
-
-        StandaloneLogger.RecordPath("MetaDB", Path.Combine(MainPath, "meta_umaviewer"));
-        StandaloneLogger.RecordPath("MasterDB", Path.Combine(MainPath, "master", "master_umaviewer.mdb"));
-        StandaloneLogger.RecordDirectory("Resource directory", Path.Combine(MainPath, "dat"));
-
-        StandaloneLogger.End("Config Constructor");
     }
 
     public void UpdateConfig(bool requireRestart)
     {
-        StandaloneLogger.Begin("UpdateConfig");
-
-        try
+        File.WriteAllText(configPath, JsonUtility.ToJson(this, true));
+        if (requireRestart)
         {
-            StandaloneLogger.Info("Writing config: " + configPath);
-
-            File.WriteAllText(configPath, JsonUtility.ToJson(this, true));
-
-            StandaloneLogger.RecordPath("Updated Config.json", configPath);
-            StandaloneLogger.RecordConfig();
-
-            if (requireRestart)
-            {
-                UmaViewerUI.Instance?.ShowMessage(
-                    "The configuration has changed. Please restart the application.",
-                    UIMessageType.Default);
-            }
+            UmaViewerUI.Instance?.ShowMessage("The configuration has changed. Please restart the application.", UIMessageType.Default);
         }
-        catch (Exception ex)
-        {
-            StandaloneLogger.Exception("UpdateConfig failed", ex);
-
-            UmaViewerUI.Instance?.ShowMessage(
-                "Config save failed: " + ex.Message,
-                UIMessageType.Error);
-        }
-
-        StandaloneLogger.End("UpdateConfig");
     }
 
     public ulong GetAudioKey()
     {
         string keyText = string.IsNullOrWhiteSpace(AudioKeyText) ? DefaultAudioKeyText : AudioKeyText.Trim();
-
-        if (keyText.Length > 16 || !ulong.TryParse(
-            keyText,
-            System.Globalization.NumberStyles.AllowHexSpecifier,
-            System.Globalization.CultureInfo.InvariantCulture,
-            out ulong key) || key == 0)
+        if (keyText.Length > 16 || !ulong.TryParse(keyText, System.Globalization.NumberStyles.AllowHexSpecifier,
+            System.Globalization.CultureInfo.InvariantCulture, out ulong key) || key == 0)
         {
             throw new InvalidOperationException("AudioKeyText must be a nonzero hexadecimal key of at most 16 digits, without a 0x prefix.");
         }
@@ -436,17 +297,6 @@ public class Config
     public int GetTargetFrameRate()
     {
         return TargetFrameRate <= 0 ? -1 : TargetFrameRate;
-    }
-
-    /// <summary>Velocidad de reproduccion del live, ya limitada al rango util (0.1 - 2).</summary>
-    public float GetVideoSpeed()
-    {
-        return Mathf.Clamp(VideoSpeed <= 0f ? 1f : VideoSpeed, 0.1f, 2f);
-    }
-
-    public int GetUIFrameRate()
-    {
-        return UIFrameRate <= 0 ? -1 : UIFrameRate;
     }
 
     public bool TryGetNetworkProxyUri(out Uri proxyUri, out string error)
@@ -484,7 +334,6 @@ public class Config
         {
             return Path.Combine(Application.persistentDataPath, "Config.json");
         }
-
         return Application.dataPath + "/../Config.json";
     }
 
@@ -493,12 +342,10 @@ public class Config
         if (byteArray == null) return string.Empty;
 
         StringBuilder sb = new StringBuilder(byteArray.Length * 2);
-
         foreach (byte b in byteArray)
         {
             sb.AppendFormat("{0:X2}", b);
         }
-
         return sb.ToString();
     }
 
@@ -508,13 +355,11 @@ public class Config
             return new byte[0];
 
         byte[] result = new byte[hex.Length / 2];
-
         for (int i = 0; i < result.Length; i++)
         {
             string byteString = hex.Substring(i * 2, 2);
             result[i] = byte.Parse(byteString, System.Globalization.NumberStyles.HexNumber);
         }
-
         return result;
     }
 }
@@ -536,13 +381,6 @@ public enum WorkMode
 {
     Default,
     Standalone
-}
-
-public enum ProxyMode
-{
-    Off = 0,
-    On = 1,
-    Auto = 2
 }
 
 [Serializable]

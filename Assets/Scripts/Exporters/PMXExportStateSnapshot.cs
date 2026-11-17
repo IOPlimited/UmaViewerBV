@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Gallop;
 using UnityEngine;
 
@@ -19,7 +20,10 @@ internal sealed class PMXExportStateSnapshot : IDisposable
     private readonly bool _physicsEnabled;
     private readonly bool _eyeTrackingEnabled;
     private readonly bool _animatorControlEnabled;
+    private readonly bool _nativeFacialProperties;
     private bool _disposed;
+    private readonly List<(SkinnedMeshRenderer renderer, Mesh original, Mesh temporary, float[] weights)> _meshes =
+        new List<(SkinnedMeshRenderer, Mesh, Mesh, float[])>();
 
     private struct TransformState
     {
@@ -52,6 +56,7 @@ internal sealed class PMXExportStateSnapshot : IDisposable
         _eyeTrackingEnabled = container.EnableEyeTracking;
         _animatorControlEnabled = container.isAnimatorControl;
         _faceOverrideData = container.FaceOverrideData;
+        _nativeFacialProperties = container.FaceDrivenKeyTarget != null && container.FaceDrivenKeyTarget.ExportNativeFaceProperties;
 
         Transform[] transforms = container.GetComponentsInChildren<Transform>(true);
         _transforms = new TransformState[transforms.Length];
@@ -111,8 +116,21 @@ internal sealed class PMXExportStateSnapshot : IDisposable
 
     }
 
-    internal void FreezeForExport()
+    internal void FreezeForExport(bool nativeFaceProperties = false)
     {
+        if (_container.FaceDrivenKeyTarget != null && nativeFaceProperties)
+            _container.FaceDrivenKeyTarget.ExportNativeFaceProperties = true;
+        // Export baking must never clear or append blend shapes on shared imported assets.
+        foreach (var renderer in _container.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            if (renderer.sharedMesh == null) continue;
+            Mesh original = renderer.sharedMesh;
+            Mesh temporary = UnityEngine.Object.Instantiate(original);
+            var weights = new float[original.blendShapeCount];
+            for (int i=0; i<weights.Length; i++) weights[i]=renderer.GetBlendShapeWeight(i);
+            _meshes.Add((renderer, original, temporary, weights));
+            renderer.sharedMesh = temporary;
+        }
         // 冻结放在导出 try 块内，任一步骤异常时都能进入 Dispose 恢复快照。
         if (_container.UmaAnimator != null) _container.UmaAnimator.enabled = false;
         if (_container.UmaFaceAnimator != null) _container.UmaFaceAnimator.enabled = false;
@@ -134,7 +152,7 @@ internal sealed class PMXExportStateSnapshot : IDisposable
 
         // 先回到角色初始化姿势，再按历史 VMD 导出基准将双臂各下压 38.5 度。
         _container.ResetBodyPose();
-        _container.UpBodyReset();
+        if (!_container.IsMini) _container.UpBodyReset();
         leftArm.Rotate(0f, 0f, -MmdAPoseArmAngle, Space.Self);
         rightArm.Rotate(0f, 0f, MmdAPoseArmAngle, Space.Self);
     }
@@ -165,11 +183,23 @@ internal sealed class PMXExportStateSnapshot : IDisposable
         {
             try
             {
-                RestoreTransforms();
+                RestoreRuntimeComponents();
             }
             finally
             {
-                RestoreRuntimeComponents();
+                try { RestoreTransforms(); }
+                finally
+                {
+                    foreach (var mesh in _meshes)
+                    {
+                        if (mesh.renderer != null)
+                        {
+                            mesh.renderer.sharedMesh = mesh.original;
+                            for (int i=0; i<mesh.weights.Length; i++) mesh.renderer.SetBlendShapeWeight(i,mesh.weights[i]);
+                        }
+                        if (mesh.temporary != null) UnityEngine.Object.DestroyImmediate(mesh.temporary);
+                    }
+                }
             }
         }
     }
@@ -200,6 +230,8 @@ internal sealed class PMXExportStateSnapshot : IDisposable
 
     private void RestoreFacialState()
     {
+        if (_container.FaceDrivenKeyTarget != null)
+            _container.FaceDrivenKeyTarget.ExportNativeFaceProperties = _nativeFacialProperties;
         _container.FaceOverrideData = _faceOverrideData;
         for (int i = 0; i < _morphs.Length; i++)
         {

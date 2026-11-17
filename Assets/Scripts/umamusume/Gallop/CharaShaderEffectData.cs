@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Gallop
@@ -28,6 +29,7 @@ namespace Gallop
 
         [SerializeField] 
         private SettingData[] _settingDataArray; 
+        public SettingData[] Settings=>_settingDataArray;
 
         [Serializable]
         public class SettingData 
@@ -47,6 +49,34 @@ namespace Gallop
         public void Initialize()
         {
             //Something TBD?
+        }
+
+        public CharaShaderEffectData CreatePreviewInstance(IReadOnlyList<Material> materials)
+        {
+            var instance = Instantiate(this);
+            instance.name = name;
+            instance.magicClock = 0;
+            var settings = new List<SettingData>();
+            foreach (var source in _settingDataArray)
+            {
+                if (!source.TargetMaterial)
+                    continue;
+                string targetName = source.TargetMaterial.name.Replace(" (Instance)", "");
+                foreach (var material in materials)
+                {
+                    if (material.name.Replace(" (Instance)", "") != targetName)
+                        continue;
+                    settings.Add(new SettingData
+                    {
+                        Type = source.Type,
+                        TargetMaterial = material,
+                        ParamArray = source.ParamArray,
+                        ParamCurveArray = source.ParamCurveArray
+                    });
+                }
+            }
+            instance._settingDataArray = settings.ToArray();
+            return instance;
         }
 
 
@@ -88,6 +118,7 @@ namespace Gallop
                     return value * magicClock * 0.001f;
                 case 2:
                     float result = (value * magicClock * 0.001f) % 2.0f;
+                    Debug.Log(result);
                     return result;
                 case 5:
                     float ratio = value * magicClock * 0.001f;
