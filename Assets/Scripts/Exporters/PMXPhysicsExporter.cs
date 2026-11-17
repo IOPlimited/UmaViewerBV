@@ -80,7 +80,8 @@ internal static class PMXPhysicsExporter
     {
         PMXSourcePhysicsExporter.Build(context.Source, coordinateRoot, boneResult, model,
             context.SourceOptions ?? new PMXSourcePhysicsExporter.Options());
-        Validate(model.Rigidbodies.ToList(), model.Joints.ToList(), boneResult.Bones.Length);
+        PMXNativePhysicsRecipe.Apply(model);
+        Validate(model.Rigidbodies.ToList(), model.Joints.ToList(), model.Bones.Length);
     }
 
     private static Transform FindRootTransform(string boneName, Transform[] hierarchy)

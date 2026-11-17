@@ -247,7 +247,7 @@ internal static class PMXSourcePhysicsExporter
             case "clooar": return false;
         }
         return !root.StartsWith("Sp_Ch_Bust", StringComparison.Ordinal) &&
-            (skirtIndex >= 0 || root.StartsWith("Sp_He_Hair", StringComparison.Ordinal) ||
+            (skirtIndex >= 0 || root.StartsWith("Sp_He_Ear", StringComparison.Ordinal) || root.StartsWith("Sp_He_Hair", StringComparison.Ordinal) ||
             root.StartsWith("Sp_Hi_Tail", StringComparison.Ordinal) ||
             root.StartsWith("Sp_Hi_", StringComparison.Ordinal) && root.Contains("Skirt"));
     }
