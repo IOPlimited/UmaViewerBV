@@ -103,10 +103,11 @@ public class UmaViewerBuilder : MonoBehaviour
         else
         {
             umaContainer.CharaData = UmaDatabaseController.ReadCharaData(chara);
-            LoadNormalUma(umaContainer, chara, costumeId, true, haedCostumeId);
+            LoadNormalUma(umaContainer, chara, costumeId, haedCostumeId);
+            if (!ModelSettings.IsTPose &&
+                Main.AbList.TryGetValue($"3d/motion/event/body/chara/chr{id}_00/anm_eve_chr{id}_00_idle01_loop", out var idle))
+                yield return umaContainer.LoadPreviewIdle(idle);
         }
-
-        yield break;
     }
 
     public void LoadLiveUma(List<LiveCharacterLoadData> characters)
@@ -150,7 +151,7 @@ public class UmaViewerBuilder : MonoBehaviour
                 }
                 else
                 {
-                    LoadNormalUma(umaContainer, characters[i].CharaEntry, characters[i].CostumeId, false, characters[i].HeadCostumeId);
+                    LoadNormalUma(umaContainer, characters[i].CharaEntry, characters[i].CostumeId, characters[i].HeadCostumeId);
                 }
 
                 if (umaContainer.UmaAnimator != null)
@@ -180,7 +181,7 @@ public class UmaViewerBuilder : MonoBehaviour
         }
     }
 
-    private void LoadNormalUma(UmaContainerCharacter umaContainer, CharaEntry chara, string costumeId, bool loadMotion = false, string haedCostumeId = "")
+    private void LoadNormalUma(UmaContainerCharacter umaContainer, CharaEntry chara, string costumeId, string haedCostumeId)
     {
         int id = chara.Id;
         umaContainer.CharaEntry = chara;
@@ -401,13 +402,6 @@ public class UmaViewerBuilder : MonoBehaviour
         umaContainer.Initialize(!ModelSettings.IsTPose);
         umaContainer.Position = umaContainer.transform.Find("Position");
         umaContainer.SetupBoneHandles();
-        if (!ModelSettings.IsTPose && loadMotion)
-        {
-            if (Main.AbList.TryGetValue($"3d/motion/event/body/chara/chr{id}_00/anm_eve_chr{id}_00_idle01_loop", out UmaDatabaseEntry entry))
-            {
-                umaContainer.LoadAnimation(entry);
-            }
-        }
 
         //修改(载入通用服装ColorSet相关)
         UI.ClearColorSetButtons();
@@ -1422,6 +1416,7 @@ public class UmaViewerBuilder : MonoBehaviour
         PoseManager.SetPoseModeStatic(false);
         if (CurrentUMAContainer != null)
         {
+            CurrentUMAContainer.StopPreviewIdle();
             //It seems that OnDestroy will executed after new model loaded, which cause new FacialPanels empty...
             UI.currentFaceDrivenKeyTarget = null;
             UI.LoadEmotionPanels(null);
