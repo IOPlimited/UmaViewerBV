@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public partial class UmaContainerCharacter
@@ -6,8 +7,32 @@ public partial class UmaContainerCharacter
     public float PreviewLegacyTime { get; private set; }
     public float PreviewLegacySpeed { get; private set; } = 1f;
     AnimationClip previewLegacyFace, previewLegacyEar;
+    PreviewIdleController previewIdle;
     bool PreviewLegacyLoops => PreviewLegacyClip != null &&
         (PreviewLegacyClip.isLooping || PreviewLegacyClip.name.Contains("_loop"));
+
+    internal IEnumerator LoadPreviewIdle(UmaDatabaseEntry idle)
+    {
+        previewIdle = new PreviewIdleController(this, idle);
+        LoadAnimation(idle);
+        return previewIdle.Load();
+    }
+
+    internal void StopPreviewIdle()
+    {
+        previewIdle?.Dispose();
+        previewIdle = null;
+    }
+
+    internal void SuspendPreviewIdle() => previewIdle?.Suspend();
+
+    void AdvancePreviewIdle(float delta)
+    {
+        if (previewIdle == null) return;
+        float speed = PreviewLegacyClip != null ? PreviewLegacySpeed : UmaAnimator.enabled ? UmaAnimator.speed : 0f;
+        if (IsLive || UI.PoseManager.PoseModeOn) speed = 0f;
+        previewIdle.Tick(delta * speed, !isAnimatorControl && previewLegacyFace == null && previewLegacyEar == null);
+    }
 
     void PlayPreviewLegacy(AnimationClip clip)
     {

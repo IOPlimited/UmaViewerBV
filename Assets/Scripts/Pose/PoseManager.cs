@@ -116,6 +116,7 @@ public class PoseManager : MonoBehaviour
 
         var modelSettings = UmaViewerUI.Instance.ModelSettings;
         var builder = UmaViewerBuilder.Instance;
+        builder.CurrentUMAContainer?.SuspendPreviewIdle();
         modelSettings.SetEyeTrackingEnable(false);
         modelSettings.SetDynamicBoneEnable(false);
         HandleCanvas.SetActive(true);

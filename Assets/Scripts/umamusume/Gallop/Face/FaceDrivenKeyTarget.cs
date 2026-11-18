@@ -1,3 +1,4 @@
+using Gallop.Live;
 using Gallop.Live.Cutt;
 using System;
 using System.Collections.Generic;
@@ -375,17 +376,27 @@ namespace Gallop
             ApplyRotation();
         }
 
-        public void ChangeMorphEye()
+        public void ChangeMorphEye() => ChangeMorphEye(FaceEyeType.Base);
+
+        static float EyeWeight(FacialMorph morph, FaceEyeType blinkPose)
+        {
+            if (blinkPose != FaceEyeType.Base && morph.index > 0 && morph.index < (int)FaceEyeType.XRange)
+                return morph.index == (int)blinkPose ? 1f : 0f;
+            return morph.weight;
+        }
+
+        internal void ChangeMorphEye(FaceEyeType blinkPose)
         {
             if (DeferLiveFacialWrite(1))
                 return;
             FacialResetEye();
             if (Container.FaceOverrideData && Container.FaceOverrideData.Enable)
             {
-                OverrideFace(Container.FaceOverrideData);
+                OverrideFace(Container.FaceOverrideData, blinkPose);
             }
 
-            EyeMorphs.ForEach(morph => ProcessMorph(morph));
+            foreach (var morph in EyeMorphs)
+                ProcessMorph(morph, EyeWeight(morph, blinkPose));
             ProcessLiveTargetOverrides(EyeMorphs, BaseREyeMorph, BaseLEyeMorph);
             ApplyRotationEye();
         }
@@ -410,12 +421,25 @@ namespace Gallop
             ApplyRotationEyebrow();
         }
 
-        public void ChangeMorphEar()
+        public void ChangeMorphEar() => ChangeMorphEar(null);
+
+        internal void ChangeMorphEar(LiveEarWeightTransition weights)
         {
             if (DeferLiveFacialWrite(8))
                 return;
             FacialResetEar();
-            EarMorphs.ForEach(morph => ProcessMorph(morph));
+            foreach (var morph in EarMorphs)
+            {
+                if (weights == null)
+                {
+                    ProcessMorph(morph);
+                    continue;
+                }
+                if (!weights.ActiveTypes.Contains(morph.index)) continue;
+                int offset = morph.index * 6 + (morph.direction ? 3 : 0);
+                for (int bone = 0; bone < Mathf.Min(morph.trsArray.Count, 3); bone++)
+                    ApplyMorphTransform(morph.trsArray[bone], weights.Weights[offset + bone]);
+            }
             ApplyRotationEar();
         }
 
@@ -443,18 +467,19 @@ namespace Gallop
             });
         }
 
-        private void ProcessMorph(FacialMorph morph)
+        private void ProcessMorph(FacialMorph morph, float? inputWeight = null)
         {
             {
                 var isOverride = Container.FaceOverrideData && Container.FaceOverrideData.Enable;
                 if (isOverride && morph.OverrideType == OverrideType.Ignore)
                     return;
                 bool ear = Container.IsLive && EarMorphs.Contains(morph);
-                if (!ear && morph.weight == 0 && (!isOverride || morph.OverrideType == OverrideType.None))
+                float manualWeight = inputWeight ?? morph.weight;
+                if (!ear && manualWeight == 0 && (!isOverride || morph.OverrideType == OverrideType.None))
                     return;
                 if (ear && !LiveEarState.Weights.ActiveTypes.Contains(morph.index) && (!isOverride || morph.OverrideType == OverrideType.None))
                     return;
-                var weight = (isOverride && morph.OverrideType == OverrideType.Override ? morph.overrideWeight : morph.weight);
+                var weight = (isOverride && morph.OverrideType == OverrideType.Override ? morph.overrideWeight : manualWeight);
                 for (int bone = 0; bone < morph.trsArray.Count; bone++)
                 {
                     var trs = morph.trsArray[bone];
@@ -463,15 +488,18 @@ namespace Gallop
                     float boneWeight = ear && (!isOverride || morph.OverrideType == OverrideType.None) ? LiveEarState.Weights.Weights[morph.index * 6 + (morph.direction ? 3 : 0) + bone] : weight;
                     if (ear && boneWeight <= 0f)
                         continue;
-                    if (trs.transform)
-                    {
-                        if (NativeFaceProperties ? Live.LiveFacialTargetProperties.IsScaleBone(trs._path) : trs._isValidScaleTransform)
-                            trs.transform.localScale += trs._scale * boneWeight;
-                        trs.transform.localPosition += trs._position * boneWeight;
-                        RotationRecorder[trs.transform] += trs._rotation * boneWeight;
-                    }
+                    ApplyMorphTransform(trs, boneWeight);
                 }
             }
+        }
+
+        void ApplyMorphTransform(TrsArray trs, float weight)
+        {
+            if (!trs.transform) return;
+            if (NativeFaceProperties ? LiveFacialTargetProperties.IsScaleBone(trs._path) : trs._isValidScaleTransform)
+                trs.transform.localScale += trs._scale * weight;
+            trs.transform.localPosition += trs._position * weight;
+            RotationRecorder[trs.transform] += trs._rotation * weight;
         }
 
         void ProcessLiveTargetOverrides(List<FacialMorph> morphs, FacialMorph rightBase, FacialMorph leftBase)
@@ -814,7 +842,9 @@ namespace Gallop
             ChangeMorph();
         }
 
-        public void OverrideFace(FaceOverrideData overrideData)
+        public void OverrideFace(FaceOverrideData overrideData) => OverrideFace(overrideData, FaceEyeType.Base);
+
+        void OverrideFace(FaceOverrideData overrideData, FaceEyeType blinkPose)
         {
             Action<List<FacialMorph>, FaceOverrideReplaceDataSet[]> action = delegate (List<FacialMorph> morphs, FaceOverrideReplaceDataSet[] datalist)
             {
@@ -834,12 +864,13 @@ namespace Gallop
                         {
                             if (src == LiveTimelineDefine.FacialEyeId.Base)
                                 continue;
-                            if (morphDic[src].weight > 0)
+                            float sourceWeight = EyeWeight(morphDic[src], blinkPose);
+                            if (sourceWeight > 0)
                             {
                                 foreach (var dst in arr.DstArray)
                                 {
                                     var dm = morphDic[dst.Index];
-                                    var weight = (dst.Weight == 1 ? 1 : Mathf.Lerp(0, dst.Weight, morphDic[src].weight));
+                                    var weight = (dst.Weight == 1 ? 1 : Mathf.Lerp(0, dst.Weight, sourceWeight));
                                     dm.overrideWeight += weight;
                                     dm.OverrideType = OverrideType.Override;
                                 }
