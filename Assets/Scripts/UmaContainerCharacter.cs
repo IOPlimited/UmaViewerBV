@@ -197,6 +197,7 @@ public partial class UmaContainerCharacter : UmaContainer
 
     private void OnDisable()
     {
+        StopPreviewIdle();
         UnregisterLiveModelIK();
         RestoreMirrorChangedLayers();
     }
@@ -787,6 +788,7 @@ public partial class UmaContainerCharacter : UmaContainer
     private void LateUpdate()
     {
         AdvancePreviewLegacy(Time.deltaTime);
+        AdvancePreviewIdle(Time.deltaTime);
         if (IsMini)
             return;
         if (IsLive)
@@ -1764,6 +1766,13 @@ public partial class UmaContainerCharacter : UmaContainer
             return;
         }
 
+        previewIdle?.SelectMotion(entry);
+        LoadAnimationEntry(entry);
+    }
+
+    // Companion clips belong to the selected motion and do not change preview ownership.
+    private void LoadAnimationEntry(UmaDatabaseEntry entry)
+    {
         var aClip = entry.Get<AnimationClip>();
         if (UmaAnimator)
         {
@@ -1840,18 +1849,18 @@ public partial class UmaContainerCharacter : UmaContainer
 
             if (Main.AbList.TryGetValue($"{clip.name.Replace("/body", "/facial")}_face", out UmaDatabaseEntry entry))
             {
-                LoadAnimation(entry);
+                LoadAnimationEntry(entry);
             }
 
             if (Main.AbList.TryGetValue($"{clip.name.Replace("/body", "/facial")}_ear", out entry))
             {
-                LoadAnimation(entry);
+                LoadAnimationEntry(entry);
             }
 
             UmaDatabaseEntry motion_e = null, motion_s = null;
             if (Main.AbList.TryGetValue(clip.name.Replace("_loop", "_s"), out motion_s))
             {
-                LoadAnimation(motion_s);
+                LoadAnimationEntry(motion_s);
             }
 
             if (OverrideController["clip_2"].name.Contains("_loop"))
@@ -1860,7 +1869,7 @@ public partial class UmaContainerCharacter : UmaContainer
                 {
                     if (Main.AbList.TryGetValue(OverrideController["clip_2"].name.Replace("_loop", "_e"), out motion_e))
                     {
-                        LoadAnimation(motion_e);
+                        LoadAnimationEntry(motion_e);
                     }
                 }
             }
@@ -1887,17 +1896,17 @@ public partial class UmaContainerCharacter : UmaContainer
             // If Cut-in, play immediately without state interpolation
             if (Main.AbList.TryGetValue($"{clip.name.Replace("/body", "/facial")}_face", out UmaDatabaseEntry facialMotion))
             {
-                LoadAnimation(facialMotion);
+                LoadAnimationEntry(facialMotion);
             }
 
             if (Main.AbList.TryGetValue($"{clip.name.Replace("/body", "/facial")}_ear", out UmaDatabaseEntry earMotion))
             {
-                LoadAnimation(earMotion);
+                LoadAnimationEntry(earMotion);
             }
 
             if (Main.AbList.TryGetValue($"{clip.name.Replace("/body", "/camera")}_cam", out UmaDatabaseEntry cameraMotion))
             {
-                LoadAnimation(cameraMotion);
+                LoadAnimationEntry(cameraMotion);
             }
             else
             {
@@ -1906,7 +1915,7 @@ public partial class UmaContainerCharacter : UmaContainer
 
             if (Main.AbList.TryGetValue($"{clip.name.Replace("/body", "/position")}_pos", out UmaDatabaseEntry posMotion))
             {
-                LoadAnimation(posMotion);
+                LoadAnimationEntry(posMotion);
             }
             else
             {
@@ -1982,7 +1991,7 @@ public partial class UmaContainerCharacter : UmaContainer
             UmaDatabaseEntry motion_s = null;
             if (Main.AbList.TryGetValue(clip.name.Replace("_loop", "_s"), out motion_s))
             {
-                LoadAnimation(motion_s);
+                LoadAnimationEntry(motion_s);
             }
 
             if (FaceOverrideController["clip_2"].name.Contains("_loop"))
@@ -1991,7 +2000,7 @@ public partial class UmaContainerCharacter : UmaContainer
                 {
                     if (Main.AbList.TryGetValue(FaceOverrideController["clip_2"].name.Replace("_loop", "_e"), out motion_e))
                     {
-                        LoadAnimation(motion_e);
+                        LoadAnimationEntry(motion_e);
                     }
                 }
             }
@@ -2026,7 +2035,7 @@ public partial class UmaContainerCharacter : UmaContainer
             UmaDatabaseEntry motion_s = null;
             if (Main.AbList.TryGetValue(clip.name.Replace("_loop", "_s"), out motion_s))
             {
-                LoadAnimation(motion_s);
+                LoadAnimationEntry(motion_s);
             }
 
             if (FaceOverrideController["clip_2_ear"].name.Contains("_loop"))
@@ -2035,7 +2044,7 @@ public partial class UmaContainerCharacter : UmaContainer
                 {
                     if (Main.AbList.TryGetValue(FaceOverrideController["clip_2_ear"].name.Replace("_loop", "_e"), out motion_e))
                     {
-                        LoadAnimation(motion_e);
+                        LoadAnimationEntry(motion_e);
                     }
                 }
             }

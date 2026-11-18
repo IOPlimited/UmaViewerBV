@@ -126,6 +126,12 @@ public partial class UmaDatabaseController
             (int)type+" ORDER BY id").ConvertAll(row=>Convert.ToString(row["motion_name"])).ToArray();
     }
 
+    internal string[] ReadRandomTailMotionNames()
+    {
+        return ReadMaster(masterDb, "SELECT motion_name FROM random_ear_tail_motion WHERE parts_type=2 ORDER BY id")
+            .ConvertAll(row => Convert.ToString(row["motion_name"])).ToArray();
+    }
+
     //从master里面取点歌机歌曲目录
     public Gallop.MasterJukeboxMusicData JukeboxMusicData;
 
